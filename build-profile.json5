@@ -1,0 +1,49 @@
+{
+  "app": {
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "C:\\Users\\liu\\.ohos\\config\\default_TabletUI_D_aB-6ikLqGG7VQY6hZPuNz_iD0kaN5Ni01Jn88UDST-U=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001B04EF956489B09D44F423CE26207A635F53D544B6CE9A85658222DB4975C468EE48B24809923082",
+          "profile": "C:\\Users\\liu\\.ohos\\config\\default_TabletUI_D_aB-6ikLqGG7VQY6hZPuNz_iD0kaN5Ni01Jn88UDST-U=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "C:\\Users\\liu\\.ohos\\config\\default_TabletUI_D_aB-6ikLqGG7VQY6hZPuNz_iD0kaN5Ni01Jn88UDST-U=.p12",
+          "storePassword": "0000001B4FC881534987B4FBE0BDBBF7C95BE2B8195DA61EF7CBD22BCD03C799D3D1180AC79B0E4900E547"
+        }
+      }
+    ],
+    "products": [
+      {
+        "name": "default",
+        "compatibleSdkVersion": "5.0.0(12)",
+        "runtimeOS": "HarmonyOS",
+        "targetSdkVersion": "5.0.0(12)"
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug"
+      },
+      {
+        "name": "release"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+
+> @figma/my-make-file@0.0.1 dev
+> vite --host 127.0.0.1
+
+Port 5173 is in use, trying another one...
+Port 5174 is in use, trying another one...
+Port 5175 is in use, trying another one...
+
+  VITE v6.3.5  ready in 408 ms
+
+  ➜  Local:   http://127.0.0.1:5176/
+  ➜  press h + enter to show help
+14:52:03 [vite] (client) page reload .chrome-test/Default/Extensions/ncennffkjdiamlpmcbajkmaiiiddgioo/3.52.5_0/options.html
+14:52:03 [vite] (client) page reload .chrome-test/Default/Extensions/ncennffkjdiamlpmcbajkmaiiiddgioo/3.52.5_0/popup.html
+14:52:03 [vite] (client) page reload .chrome-test/Default/Extensions/ncennffkjdiamlpmcbajkmaiiiddgioo/3.52.5_0/xl-images.html
+14:52:06 [vite] (client) page reload .chrome-test/Default/Extensions/Temp/scoped_dir3112_1838945758/CRX_INSTALL/html/craw_window.html
+14:52:06 [vite] (client) page reload .chrome-test/Default/Extensions/Temp/scoped_dir3112_1838945758/CRX_INSTALL/html/craw_window.html
+14:52:06 [vite] (client) page reload .chrome-test/Default/Extensions/nmmhkkegccagdldgiimedpiccmgmieda/1.0.0.6_0/html/craw_window.html
+14:59:03 [vite] (client) page reload .chrome-test/WasmTtsEngine/20260723.1/offscreen.html

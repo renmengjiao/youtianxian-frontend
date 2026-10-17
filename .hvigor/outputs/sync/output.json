@@ -1,0 +1,174 @@
+{
+  "version": 1,
+  "ohos-module-entry": {
+    "SELECT_TARGET": "default",
+    "MODULE_BUILD_DIR": "D:\\HuaweiCode\\TabletUI_D\\entry\\build",
+    "TARGETS": {
+      "default": {
+        "SOURCE_ROOT": "D:\\HuaweiCode\\TabletUI_D\\entry\\src\\main",
+        "RESOURCES_PATH": [
+          "D:\\HuaweiCode\\TabletUI_D\\entry\\src\\main\\resources"
+        ],
+        "BUILD_PATH": {
+          "OUTPUT_PATH": "D:\\HuaweiCode\\TabletUI_D\\entry\\build\\default\\outputs\\default",
+          "INTERMEDIA_PATH": "D:\\HuaweiCode\\TabletUI_D\\entry\\build\\default\\intermediates",
+          "JS_ASSETS_PATH": "D:\\HuaweiCode\\TabletUI_D\\entry\\build\\default\\intermediates\\loader_out\\default",
+          "JS_LITE_ASSETS_PATH": "D:\\HuaweiCode\\TabletUI_D\\entry\\build\\default\\intermediates\\loader_out_lite\\default",
+          "RES_PATH": "D:\\HuaweiCode\\TabletUI_D\\entry\\build\\default\\intermediates\\res\\default",
+          "RES_PROFILE_PATH": "D:\\HuaweiCode\\TabletUI_D\\entry\\build\\default\\intermediates\\res\\default\\resources\\base\\profile",
+          "ETS_SUPER_VISUAL_PATH": "D:\\HuaweiCode\\TabletUI_D\\entry\\build\\default\\cache\\default\\default@CompileArkTS\\esmodule",
+          "JS_SUPER_VISUAL_PATH": "D:\\HuaweiCode\\TabletUI_D\\entry\\build\\default\\cache\\default\\default@CompileJS\\jsbundle",
+          "WORKER_LOADER": "D:\\HuaweiCode\\TabletUI_D\\entry\\build\\default\\intermediates\\loader\\default\\loader.json",
+          "MANIFEST_JSON": "D:\\HuaweiCode\\TabletUI_D\\entry\\build\\default\\intermediates\\manifest\\default",
+          "OUTPUT_METADATA_JSON": "D:\\HuaweiCode\\TabletUI_D\\entry\\build\\default\\intermediates\\hap_metadata\\default\\output_metadata.json",
+          "SOURCE_MAP_DIR": "D:\\HuaweiCode\\TabletUI_D\\entry\\build\\default\\intermediates\\source_map\\default"
+        },
+        "BUILD_OPTION": {
+          "debuggable": true
+        }
+      }
+    },
+    "BUILD_OPTION": {
+      "default-default": {
+        "debuggable": true,
+        "copyFrom": "default",
+        "arkOptions": {
+          "obfuscation": {
+            "ruleOptions": {
+              "enable": false,
+              "files": [
+                "./obfuscation-rules.txt"
+              ]
+            }
+          }
+        },
+        "name": "debug"
+      }
+    },
+    "BUILD_PROFILE_OPT": {
+      "apiType": "stageMode",
+      "buildOption": {
+        "arkOptions": {
+          "obfuscation": {
+            "ruleOptions": {
+              "enable": false,
+              "files": [
+                "./obfuscation-rules.txt"
+              ]
+            }
+          }
+        }
+      },
+      "buildOptionSet": [
+        {
+          "name": "release",
+          "arkOptions": {
+            "obfuscation": {
+              "ruleOptions": {
+                "enable": false,
+                "files": [
+                  "./obfuscation-rules.txt"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "name": "default"
+        },
+        {
+          "name": "debug"
+        }
+      ],
+      "targets": [
+        {
+          "name": "default"
+        }
+      ]
+    },
+    "BUILD_CACHE_DIR": ""
+  },
+  "ohos-project": {
+    "SELECT_PRODUCT_NAME": "default",
+    "MODULE_BUILD_DIR": "D:\\HuaweiCode\\TabletUI_D\\build",
+    "BUNDLE_NAME": "com.huawei.antennadesign",
+    "VERSION_CODE": 1000000,
+    "VERSION_NAME": "1.0.0",
+    "BUILD_PATH": {
+      "OUTPUT_PATH": "D:\\HuaweiCode\\TabletUI_D\\build\\outputs\\default"
+    },
+    "MODULES": [
+      {
+        "name": "entry",
+        "srcPath": "D:\\HuaweiCode\\TabletUI_D\\entry",
+        "targets": [
+          {
+            "name": "default",
+            "applyToProducts": [
+              "default"
+            ]
+          }
+        ],
+        "belongProjectPath": "D:\\HuaweiCode\\TabletUI_D"
+      }
+    ],
+    "PROFILE_OPT": {
+      "app": {
+        "signingConfigs": [
+          {
+            "name": "default",
+            "type": "HarmonyOS",
+            "material": {
+              "certpath": "C:\\Users\\liu\\.ohos\\config\\default_TabletUI_D_aB-6ikLqGG7VQY6hZPuNz_iD0kaN5Ni01Jn88UDST-U=.cer",
+              "keyAlias": "debugKey",
+              "keyPassword": "0000001B04EF956489B09D44F423CE26207A635F53D544B6CE9A85658222DB4975C468EE48B24809923082",
+              "profile": "C:\\Users\\liu\\.ohos\\config\\default_TabletUI_D_aB-6ikLqGG7VQY6hZPuNz_iD0kaN5Ni01Jn88UDST-U=.p7b",
+              "signAlg": "SHA256withECDSA",
+              "storeFile": "C:\\Users\\liu\\.ohos\\config\\default_TabletUI_D_aB-6ikLqGG7VQY6hZPuNz_iD0kaN5Ni01Jn88UDST-U=.p12",
+              "storePassword": "0000001B4FC881534987B4FBE0BDBBF7C95BE2B8195DA61EF7CBD22BCD03C799D3D1180AC79B0E4900E547"
+            }
+          }
+        ],
+        "products": [
+          {
+            "name": "default",
+            "compatibleSdkVersion": "5.0.0(12)",
+            "runtimeOS": "HarmonyOS",
+            "targetSdkVersion": "5.0.0(12)"
+          }
+        ],
+        "buildModeSet": [
+          {
+            "name": "debug"
+          },
+          {
+            "name": "release"
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "entry",
+          "srcPath": "./entry",
+          "targets": [
+            {
+              "name": "default",
+              "applyToProducts": [
+                "default"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "CONFIG_PROPERTIES": {
+      "enableSignTask": true,
+      "skipNativeIncremental": false,
+      "hvigor.keepDependency": true
+    },
+    "OVERALL_PROJECT_PATHS": [
+      "D:\\HuaweiCode\\TabletUI_D"
+    ],
+    "BUILD_CACHE_DIR": ""
+  }
+}

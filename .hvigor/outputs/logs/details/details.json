@@ -1,0 +1,143 @@
+{
+  "HVIGOR_OHOS_PLUGIN": {
+    "MODULES": [
+      {
+        "MODULE_NAME": "923fe53966c6cd9343e11af776cd4b05be315ea4b200b02e4d5dfb0f929b73bf",
+        "API_TYPE": "stageMode",
+        "INCLUDE_IN_BUILD": true,
+        "IS_COMMAND_LINE_ENTRY_MODULE": false,
+        "BUILD_OPTION": [
+          {
+            "path": "debuggable",
+            "traceValue": true,
+            "value": true
+          },
+          {
+            "path": "copyFrom",
+            "traceValue": false,
+            "value": ""
+          },
+          {
+            "path": "arkOptions",
+            "traceValue": false,
+            "value": ""
+          },
+          {
+            "path": "arkOptions.obfuscation",
+            "traceValue": false,
+            "value": ""
+          },
+          {
+            "path": "arkOptions.obfuscation.ruleOptions",
+            "traceValue": false,
+            "value": ""
+          },
+          {
+            "path": "arkOptions.obfuscation.ruleOptions.enable",
+            "traceValue": true,
+            "value": false
+          },
+          {
+            "path": "arkOptions.obfuscation.ruleOptions.files",
+            "traceValue": false,
+            "value": ""
+          }
+        ],
+        "PACKAGE_JSON": [],
+        "MODULE_TYPE": "entry",
+        "INCREMENTAL_TASKS": {
+          "COMPILE_ARKTS": true
+        },
+        "IS_INCREMENTAL_MODULE": true
+      }
+    ],
+    "NATIVE_COMPILER": "Default",
+    "IS_FULL_BUILD": false,
+    "PACKAGE_JSON": [],
+    "BUILD_MODE": "debug"
+  },
+  "HVIGOR": {
+    "IS_INCREMENTAL": true,
+    "IS_DAEMON": true,
+    "IS_PARALLEL": true,
+    "IS_HVIGORFILE_TYPE_CHECK": false,
+    "IS_EXECUTION_OHPM_BY_HVIGOR": false,
+    "BUILD_ANALYSIS_MODE": "normal",
+    "TASK_TIME": {},
+    "CUSTOM_TASK_TIME": {},
+    "CUSTOM_PLUGIN_TIME": {},
+    "APIS": [],
+    "CONFIG_EXPERIMENT": {
+      "ENABLE_MODULE_SKIP": false,
+      "ENABLE_CPP_FUNCTION_LEVEL_INCREMENTAL": false
+    },
+    "CONFIG_PROPERTIES": {},
+    "TOTAL_TIME": 237209000,
+    "BUILD_ID": "202607270159325300",
+    "ERROR_MESSAGE": [
+      {
+        "CODE": "00303024",
+        "MESSAGE": "The project structure and configuration need to be upgraded before use.",
+        "SOLUTIONS": [
+          "Use the migration tool to update the project structure and configuration with Deveco Studio, or refer to the guide to manually update the project structure and configuration."
+        ],
+        "TIMESTAMP": "1785088772565"
+      },
+      {
+        "CODE": "00303024",
+        "STACK": "00303024 Configuration Error\n...\n    at OhosLogger.printErrorExit (***\\tools\\hvigor\\hvigor\\src\\base\\log\\hv***g.js:1:5087)\n    at ValidateUtil.modelVersionCheck (***\\tools\\hvigor\\hvigor-ohos-plugin\\src\\utils\\validate\\va***l.js:1:3745)\n    at ProjectModelImpl.projectStatusCheck (***\\tools\\hvigor\\hvigor-ohos-plugin\\src\\model\\project\\co***l.js:1:6062)\n    at new CoreProjectModelImpl (***\\tools\\hvigor\\hvigor-ohos-plugin\\src\\model\\project\\co***l.js:1:2893)\n    at new ProjectModelImpl (***\\tools\\hvigor\\hvigor-ohos-plugin\\src\\model\\project\\pr***l.js:1:596)\n    at new AppPlugin (***\\tools\\hvigor\\hvigor-ohos-plugin\\src\\plugin\\ap***n.js:1:514)\n    at StageInitializationStrategy.createAppPlugin (***\\tools\\hvigor\\hvigor-ohos-plugin\\src\\plugin\\strategy\\st***y.js:1:949)\n    at AppPluginBuilder.createPlugin (***\\tools\\hvigor\\hvigor-ohos-plugin\\src\\plugin\\builder\\ap***r.js:1:1610)\n    at AppPluginBuilder.build (***\\tools\\hvigor\\hvigor-ohos-plugin\\src\\plugin\\builder\\ab***r.js:1:756)\n    at PluginFactory.getAppPlugin (***\\tools\\hvigor\\hvigor-ohos-plugin\\src\\plugin\\factory\\pl***y.js:1:481)",
+        "PROJECT_CONFIG": {
+          "buildMode": "Debug",
+          "compileMode": "esmodule",
+          "moduleType": "entry",
+          "targetName": ".default",
+          "packageManagerType": "ohpm",
+          "isLocalTest": false,
+          "needCoverageInsert": false,
+          "debugLine": false,
+          "compileSdkVersion": 24,
+          "compatibleSdkVersion": 12,
+          "originCompatibleSdkVersion": "5.0.0(12)",
+          "etsLoaderVersion": "6.1.1.125",
+          "etsLoaderReleaseType": "Release",
+          "aotCompileMode": "type",
+          "isCrossplatform": false,
+          "bundleType": "app",
+          "apiVersion": 24,
+          "isFaMode": false,
+          "deviceTypes": [
+            "tablet",
+            "2in1"
+          ],
+          "integratedHsp": false,
+          "branchElimination": false,
+          "tsImportSendable": false,
+          "resolveConflictMode": true,
+          "useNativeResolver": true,
+          "shouldEmitJs": true,
+          "useTscResolve": false,
+          "singleFileEmit": false,
+          "executionMode": "memory",
+          "isHarDeduplicateEnabled": false,
+          "autoLazyImport": false,
+          "allowEmptyBundleName": false,
+          "reExportCheckMode": "noCheck",
+          "usePathPlaceholder": false,
+          "writeRollupCache": true,
+          "isExpandImportEnabled": false,
+          "ignoreCrossplatformCheck": false,
+          "skipOhModulesLint": false,
+          "enableStrictCheckOHModule": false,
+          "useDeclarationFileSignature": false,
+          "isPreloadSoEnabled": false,
+          "runtimeOS": "HarmonyOS",
+          "sdkInfo": "false:24:6.1.1.125:Release",
+          "useSourceHash": false,
+          "isByteCodeHarOptimize": false,
+          "copyCodeResourceEnable": true,
+          "uiTransformOptimization": false
+        }
+      }
+    ]
+  }
+}
