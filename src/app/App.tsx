@@ -2261,7 +2261,7 @@ function ProjectDetail({ project, onBack }: { project: (typeof RECENT_PROJECTS)[
   const optTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const buildOptimizationResults = useCallback(() => [
-    { idx: 1, constraint: "满足", radiationEfficiency: "", totalEfficiency: "" },
+    { idx: 1, constraint: "满足", radiationEfficiency: "-1.6 dB", totalEfficiency: "-6.5 dB" },
   ], []);
 
   useEffect(() => {
@@ -2335,17 +2335,20 @@ function ProjectDetail({ project, onBack }: { project: (typeof RECENT_PROJECTS)[
   // Create a result artifact (空间拓扑图 / 二维矩形图 / 表格) from a selected results row
   const createRowArtifact = (rowIdx: number, kind: "topology" | "rect2d" | "table") => {
     const meta = {
-      topology: { folderId: "folder-topology", folderLabel: "空间拓扑图", icon: Globe },
-      rect2d:   { folderId: "folder-rect2d",   folderLabel: "二维矩形图", icon: Activity },
-      table:    { folderId: "folder-table",    folderLabel: "数据表格",   icon: FileText },
+      topology: { label: "空间拓扑图", icon: Globe },
+      rect2d:   { label: "二维矩形图", icon: Activity },
+      table:    { label: "数据表格",   icon: FileText },
     }[kind];
+    const rowNodeId = `row-${rowIdx}`;
     const fileId = `gen-${kind}-${Date.now()}`;
     setGenNodes(prev => {
       const next = [...prev];
-      if (!next.some(g => g.id === meta.folderId)) {
-        next.push({ parentId: "results", id: meta.folderId, label: meta.folderLabel, icon: FolderOpen, isFolder: true });
+      // 「序号N」分组节点挂在「结果展示」下，与「目标结果表格」同级
+      if (!next.some(g => g.id === rowNodeId)) {
+        next.push({ parentId: "results", id: rowNodeId, label: `序号${rowIdx}`, icon: FolderOpen, isFolder: true });
       }
-      next.push({ parentId: meta.folderId, id: fileId, label: `第 ${rowIdx} 行-${meta.folderLabel}`, icon: meta.icon, kind, rowIdx });
+      // 生成产物挂到「序号N」下
+      next.push({ parentId: rowNodeId, id: fileId, label: meta.label, icon: meta.icon, kind, rowIdx });
       return next;
     });
     setSelNode(fileId);
@@ -2589,8 +2592,15 @@ function ProjectDetail({ project, onBack }: { project: (typeof RECENT_PROJECTS)[
         return (
           <div>
             <h3 style={{ fontSize: 16, fontWeight: 600, color: C.text1, marginBottom: 14 }}>{genLabel}</h3>
-            <div style={{ background: "#fff", borderRadius: 10, border: `1px solid ${C.border}`, padding: "16px", display: "flex", justifyContent: "center" }}>
-              <SpatialTopology />
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 14 }}>
+              <div style={{ background: "#fff", borderRadius: 10, border: `1px solid ${C.border}`, padding: 16, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: C.text1 }}>总效率空间拓扑图</span>
+                <img src="./charts/总效率空间拓扑图.png" alt="总效率空间拓扑图" style={{ width: "100%", borderRadius: 8 }} />
+              </div>
+              <div style={{ background: "#fff", borderRadius: 10, border: `1px solid ${C.border}`, padding: 16, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: C.text1 }}>辐射效率空间拓扑图</span>
+                <img src="./charts/辐射效率空间拓扑图.png" alt="辐射效率空间拓扑图" style={{ width: "100%", borderRadius: 8 }} />
+              </div>
             </div>
             <div style={{ display: "flex", justifyContent: "center", gap: 24, marginTop: 10, fontSize: 10, fontFamily: "monospace", color: C.text2 }}>
               <span>辐射单元: <b style={{ color: C.accent }}>4 × 1 阵列</b></span>
@@ -2643,8 +2653,15 @@ function ProjectDetail({ project, onBack }: { project: (typeof RECENT_PROJECTS)[
         return (
           <div>
             <h3 style={{ fontSize: 16, fontWeight: 600, color: C.text1, marginBottom: 14 }}>{genLabel}</h3>
-            <div style={{ background: "#fff", borderRadius: 10, border: `1px solid ${C.border}`, padding: "16px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <img src="./chart-result.png" alt="二维矩形图" style={{ width: "100%", maxWidth: 600, borderRadius: 8 }} />
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 14 }}>
+              <div style={{ background: "#fff", borderRadius: 10, border: `1px solid ${C.border}`, padding: 16, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: C.text1 }}>辐射效率二维矩形图</span>
+                <img src="./charts/辐射效率二维矩形图.png" alt="辐射效率二维矩形图" style={{ width: "100%", borderRadius: 8 }} />
+              </div>
+              <div style={{ background: "#fff", borderRadius: 10, border: `1px solid ${C.border}`, padding: 16, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: C.text1 }}>总效率二维矩形图</span>
+                <img src="./charts/总效率二维矩形图.png" alt="总效率二维矩形图" style={{ width: "100%", borderRadius: 8 }} />
+              </div>
             </div>
             <div style={{ display: "flex", justifyContent: "center", gap: 24, marginTop: 10, fontSize: 10, fontFamily: "monospace", color: C.text2 }}>
               <span>辐射效率: <b style={{ color: C.accent }}>{rowData?.radiationEfficiency || "—"}</b></span>
