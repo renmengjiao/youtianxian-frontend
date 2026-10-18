@@ -2110,6 +2110,97 @@ function Polar3D({ size }: { size?: number }) {
   );
 }
 
+// ── Spatial Topology (antenna array layout) ───────────────────────────
+function SpatialTopology({ width, height }: { width?: number; height?: number }) {
+  const w = width ?? 640, h = height ?? 400;
+  const cx = w / 2, cy = h * 0.52;
+  const S = 0.9;
+  const ix = (x: number, y: number) => cx + (x - y) * 0.866 * S;
+  const iy = (x: number, y: number, z: number) => cy + (x + y) * 0.5 * S - z * S;
+  const poly = (pts: [number, number, number][]) =>
+    pts.map(([x, y, z]) => `${ix(x, y).toFixed(1)},${iy(x, y, z).toFixed(1)}`).join(" ");
+
+  const plane: [number, number, number][] = [[-150, -110, 0], [150, -110, 0], [150, 110, 0], [-150, 110, 0]];
+  const patchSize = 50;
+  const centers: [number, number][] = [[-60, -60], [60, -60], [-60, 60], [60, 60]];
+  const patchPts = (cx0: number, cy0: number): [number, number, number][] => {
+    const s = patchSize / 2;
+    return [[cx0 - s, cy0 - s, 1], [cx0 + s, cy0 - s, 1], [cx0 + s, cy0 + s, 1], [cx0 - s, cy0 + s, 1]];
+  };
+  const label = { fontSize: 8.5, fontFamily: "monospace", fill: C.text3 };
+
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ maxWidth: "100%", height: "auto" }}>
+      <defs>
+        <linearGradient id="topoPlane" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#eef2f7" />
+          <stop offset="100%" stopColor="#dce4ee" />
+        </linearGradient>
+      </defs>
+
+      {/* 地平面 / 介质基板 */}
+      <polygon points={poly(plane)} fill="url(#topoPlane)" stroke={C.borderA} strokeWidth="1" />
+      {[-100, -50, 0, 50, 100].map(g => (
+        <line key={`gx${g}`} x1={ix(g, -110)} y1={iy(g, -110, 0)} x2={ix(g, 110)} y2={iy(g, 110, 0)}
+          stroke="#c9d2de" strokeWidth="0.5" strokeDasharray="3,3" />
+      ))}
+      {[-100, -50, 0, 50, 100].map(g => (
+        <line key={`gy${g}`} x1={ix(-150, g)} y1={iy(-150, g, 0)} x2={ix(150, g)} y2={iy(150, g, 0)}
+          stroke="#c9d2de" strokeWidth="0.5" strokeDasharray="3,3" />
+      ))}
+
+      {/* 馈电网络 */}
+      {centers.map(([x, y], i) => (
+        <line key={`feed${i}`} x1={ix(0, 0)} y1={iy(0, 0, 0)} x2={ix(x, y)} y2={iy(x, y, 0)}
+          stroke="#e0993a" strokeWidth="1.2" />
+      ))}
+      <circle cx={ix(0, 0)} cy={iy(0, 0, 0)} r={3.5} fill="#e0993a" stroke="#fff" strokeWidth="1" />
+      <text x={ix(0, 0) + 7} y={iy(0, 0, 0) + 12} style={label}>馈电点</text>
+
+      {/* 辐射贴片阵列 */}
+      {centers.map(([x, y], i) => (
+        <g key={`patch${i}`}>
+          <polygon points={poly(patchPts(x, y))} fill="rgba(26,115,232,0.16)" stroke={C.accent} strokeWidth="1.1" />
+          <text x={ix(x, y)} y={iy(x, y, 1) + 3} textAnchor="middle" style={{ ...label, fill: C.accent, fontSize: 9 }}>P{i + 1}</text>
+        </g>
+      ))}
+
+      {/* 主辐射方向 */}
+      <line x1={ix(0, 0)} y1={iy(0, 0, 0)} x2={ix(0, 0)} y2={iy(0, 0, 120)} stroke={C.borderA} strokeWidth="1" strokeDasharray="4,3" />
+      <ellipse cx={ix(0, 0)} cy={iy(0, 0, 125)} rx={105} ry={24} fill="rgba(26,115,232,0.05)"
+        stroke="rgba(26,115,232,0.4)" strokeWidth="0.9" strokeDasharray="4,3" />
+      <text x={ix(0, 0)} y={iy(0, 0, 125) - 30} textAnchor="middle" style={{ ...label, fill: C.accent }}>主辐射方向</text>
+
+      {/* 坐标轴 */}
+      <line x1={ix(0, 0)} y1={iy(0, 0, 0)} x2={ix(190, 0)} y2={iy(190, 0, 0)} stroke="#c04040" strokeWidth="1" />
+      <text x={ix(198, 0)} y={iy(198, 0, 0) + 3} style={{ ...label, fill: "#c06060" }}>X</text>
+      <line x1={ix(0, 0)} y1={iy(0, 0, 0)} x2={ix(0, 190)} y2={iy(0, 190, 0)} stroke="#40a040" strokeWidth="1" />
+      <text x={ix(0, 198)} y={iy(0, 198, 0) + 3} style={{ ...label, fill: "#60a060" }}>Y</text>
+      <line x1={ix(0, 0)} y1={iy(0, 0, 0)} x2={ix(0, 0)} y2={iy(0, 0, 150)} stroke="#4060c0" strokeWidth="1" />
+      <text x={ix(0, 0)} y={iy(0, 0, 158)} style={{ ...label, fill: "#6080c0" }}>Z</text>
+
+      {/* 结构尺寸标注 */}
+      <text x={ix(-60, -60)} y={iy(-60, -60, 1) - 32} textAnchor="middle" style={label}>a</text>
+      <text x={ix(-60, -60) - 34} y={iy(-60, -60, 1) + 3} style={label}>b</text>
+      <text x={ix(0, -60)} y={iy(0, -60, 0) - 4} textAnchor="middle" style={label}>a1</text>
+      <text x={ix(-60, 0) - 10} y={iy(-60, 0, 0) + 12} textAnchor="middle" style={label}>b1</text>
+      <text x={ix(30, -30) + 12} y={iy(30, -30, 0) + 2} style={label}>p_length</text>
+      <text x={ix(60, -60)} y={iy(60, -60, 1) + 22} textAnchor="middle" style={label}>w_length</text>
+
+      {/* 图例 */}
+      <g transform={`translate(${w - 128}, ${24})`}>
+        <rect x={0} y={0} width={118} height={54} rx={6} fill="#fff" stroke={C.border} />
+        <rect x={10} y={11} width={10} height={8} fill="rgba(26,115,232,0.16)" stroke={C.accent} strokeWidth="0.8" />
+        <text x={26} y={18} style={label}>辐射贴片</text>
+        <line x1={10} y1={29} x2={20} y2={29} stroke="#e0993a" strokeWidth="1.2" />
+        <text x={26} y={32} style={label}>馈电网络</text>
+        <rect x={10} y={40} width={10} height={6} fill="url(#topoPlane)" stroke={C.borderA} strokeWidth="0.8" />
+        <text x={26} y={46} style={label}>基板 / 地平面</text>
+      </g>
+    </svg>
+  );
+}
+
 // ── Shared optimization log data ──────────────────────────────────────
 const ALL_OPT_LOGS = [
   "[00:00] 初始化 DCNSGA_II 优化算法，种群规模: 50",
@@ -2163,12 +2254,14 @@ function ProjectDetail({ project, onBack }: { project: (typeof RECENT_PROJECTS)[
   type OptStatus = "idle" | "running" | "paused" | "completed";
   const [optStatus, setOptStatus] = useState<OptStatus>("idle");
   const [optLogs, setOptLogs] = useState<string[]>([]);
-  const [optResults, setOptResults] = useState<Array<{ idx: number; constraint: string; totalGain: string; vswr: string; pheno: string }> | null>(null);
+  const [optResults, setOptResults] = useState<Array<{ idx: number; constraint: string; radiationEfficiency: string; totalEfficiency: string }> | null>(null);
+  const [optRowSel, setOptRowSel] = useState<number | null>(null);
+  const [optRowMenu, setOptRowMenu] = useState<{ idx: number; x: number; y: number } | null>(null);
   const optIdxRef = useRef(0);
   const optTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const buildOptimizationResults = useCallback(() => [
-    { idx: 1, constraint: "满足", totalGain: "", vswr: "", pheno: "" },
+    { idx: 1, constraint: "满足", radiationEfficiency: "", totalEfficiency: "" },
   ], []);
 
   useEffect(() => {
@@ -2209,6 +2302,8 @@ function ProjectDetail({ project, onBack }: { project: (typeof RECENT_PROJECTS)[
       optIdxRef.current = 0;
       setOptLogs([]);
       setOptResults(null);
+      setOptRowSel(null);
+      setOptRowMenu(null);
       setSelNode("");
       setParamPopup(null);
     }
@@ -2222,12 +2317,41 @@ function ProjectDetail({ project, onBack }: { project: (typeof RECENT_PROJECTS)[
     setOptStatus("idle");
     setOptLogs([]);
     setOptResults(null);
+    setOptRowSel(null);
+    setOptRowMenu(null);
     setSelNode("");
     setParamPopup(null);
   };
 
   // ── Generated result children (dynamic tree nodes) ──
-  const [genNodes, setGenNodes] = useState<{ parentId: string; id: string; label: string; icon: React.ComponentType<{ size?: number }>; isFolder?: boolean }[]>([]);
+  const [genNodes, setGenNodes] = useState<{
+    parentId: string; id: string; label: string;
+    icon: React.ComponentType<{ size?: number }>;
+    isFolder?: boolean;
+    kind?: "topology" | "rect2d" | "table";
+    rowIdx?: number;
+  }[]>([]);
+
+  // Create a result artifact (空间拓扑图 / 二维矩形图 / 表格) from a selected results row
+  const createRowArtifact = (rowIdx: number, kind: "topology" | "rect2d" | "table") => {
+    const meta = {
+      topology: { folderId: "folder-topology", folderLabel: "空间拓扑图", icon: Globe },
+      rect2d:   { folderId: "folder-rect2d",   folderLabel: "二维矩形图", icon: Activity },
+      table:    { folderId: "folder-table",    folderLabel: "数据表格",   icon: FileText },
+    }[kind];
+    const fileId = `gen-${kind}-${Date.now()}`;
+    setGenNodes(prev => {
+      const next = [...prev];
+      if (!next.some(g => g.id === meta.folderId)) {
+        next.push({ parentId: "results", id: meta.folderId, label: meta.folderLabel, icon: FolderOpen, isFolder: true });
+      }
+      next.push({ parentId: meta.folderId, id: fileId, label: `第 ${rowIdx} 行-${meta.folderLabel}`, icon: meta.icon, kind, rowIdx });
+      return next;
+    });
+    setSelNode(fileId);
+    setParamPopup(null);
+    setOptRowMenu(null);
+  };
 
   // ── 2D 矩形图 parameter settings modal ──
   const [rect2dModal, setRect2dModal] = useState(false);
@@ -2430,7 +2554,7 @@ function ProjectDetail({ project, onBack }: { project: (typeof RECENT_PROJECTS)[
 
   // Escape key cleanup
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { setSubCtxMenu(null); setSubRenameTarget(null); } };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { setSubCtxMenu(null); setSubRenameTarget(null); setOptRowMenu(null); } };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
@@ -2458,6 +2582,77 @@ function ProjectDetail({ project, onBack }: { project: (typeof RECENT_PROJECTS)[
       const genLabel = genNode?.label || "二维矩形图";
       const parentFolder = genNodes.find(g => g.id === genNode?.parentId);
       const folderLabel = parentFolder?.label || "";
+      const rowData = genNode?.rowIdx != null ? optResults?.find(r => r.idx === genNode.rowIdx) : undefined;
+
+      // Artifacts created from a results row via the context menu
+      if (genNode?.kind === "topology") {
+        return (
+          <div>
+            <h3 style={{ fontSize: 16, fontWeight: 600, color: C.text1, marginBottom: 14 }}>{genLabel}</h3>
+            <div style={{ background: "#fff", borderRadius: 10, border: `1px solid ${C.border}`, padding: "16px", display: "flex", justifyContent: "center" }}>
+              <SpatialTopology />
+            </div>
+            <div style={{ display: "flex", justifyContent: "center", gap: 24, marginTop: 10, fontSize: 10, fontFamily: "monospace", color: C.text2 }}>
+              <span>辐射单元: <b style={{ color: C.accent }}>4 × 1 阵列</b></span>
+              <span>馈电方式: <b style={{ color: C.green }}>中心同轴馈电</b></span>
+              <span>约束满足: <b style={{ color: rowData?.constraint === "满足" ? C.green : "#d93025" }}>{rowData?.constraint || "—"}</b></span>
+            </div>
+          </div>
+        );
+      }
+      if (genNode?.kind === "table") {
+        const cells: Array<[string, string]> = [
+          ["序号", `${genNode.rowIdx}`],
+          ["约束满足", rowData?.constraint || "—"],
+          ["辐射效率", rowData?.radiationEfficiency || "—"],
+          ["总效率", rowData?.totalEfficiency || "—"],
+        ];
+        return (
+          <div>
+            <h3 style={{ fontSize: 16, fontWeight: 600, color: C.text1, marginBottom: 14 }}>{genLabel}</h3>
+            <div className="rounded-xl overflow-hidden" style={{ background: "#fff", border: "1px solid " + C.border, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                <thead>
+                  <tr style={{ background: "#fafbfc", borderBottom: "1px solid " + C.border }}>
+                    <th style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, color: C.text2, fontSize: 10, width: "40%" }}>指标</th>
+                    <th style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, color: C.text2, fontSize: 10 }}>数值</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cells.map(([k, v], i) => (
+                    <tr key={k} style={{ borderBottom: "1px solid " + C.border, background: i % 2 === 0 ? "#fff" : "#f8f9fa" }}>
+                      <td style={{ padding: "10px 14px", color: C.text3 }}>{k}</td>
+                      <td style={{ padding: "10px 14px", fontFamily: "monospace", color: C.text1, fontWeight: 500 }}>
+                        {k === "约束满足" ? (
+                          <span style={{
+                            fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 4,
+                            color: v === "满足" ? C.green : "#d93025",
+                            background: v === "满足" ? "rgba(52,168,83,0.1)" : "rgba(217,48,37,0.1)",
+                          }}>{v}</span>
+                        ) : v}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      }
+      if (genNode?.kind === "rect2d") {
+        return (
+          <div>
+            <h3 style={{ fontSize: 16, fontWeight: 600, color: C.text1, marginBottom: 14 }}>{genLabel}</h3>
+            <div style={{ background: "#fff", borderRadius: 10, border: `1px solid ${C.border}`, padding: "16px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <img src="./chart-result.png" alt="二维矩形图" style={{ width: "100%", maxWidth: 600, borderRadius: 8 }} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "center", gap: 24, marginTop: 10, fontSize: 10, fontFamily: "monospace", color: C.text2 }}>
+              <span>辐射效率: <b style={{ color: C.accent }}>{rowData?.radiationEfficiency || "—"}</b></span>
+              <span>总效率: <b style={{ color: C.green }}>{rowData?.totalEfficiency || "—"}</b></span>
+            </div>
+          </div>
+        );
+      }
 
       // Map subItem keyword to category image prefix
       const keywordMap: Record<string, string> = {
@@ -2773,15 +2968,31 @@ function ProjectDetail({ project, onBack }: { project: (typeof RECENT_PROJECTS)[
                   <thead>
                     <tr style={{ background: "#fafbfc", borderBottom: "1px solid " + C.border }}>
                       <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: C.text2, fontSize: 10, whiteSpace: "nowrap" }}>序号</th>
-                      <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: C.text2, fontSize: 10, whiteSpace: "nowrap" }}>约束条件</th>
-                      <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: C.text2, fontSize: 10, whiteSpace: "nowrap" }}>总增益</th>
-                      <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: C.text2, fontSize: 10, whiteSpace: "nowrap" }}>驻波比</th>
-                      <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: C.text2, fontSize: 10, whiteSpace: "nowrap" }}>pheno(a,b,wlength,a1,b1,plength)</th>
+                      <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: C.text2, fontSize: 10, whiteSpace: "nowrap" }}>约束满足</th>
+                      <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: C.text2, fontSize: 10, whiteSpace: "nowrap" }}>辐射效率</th>
+                      <th style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600, color: C.text2, fontSize: 10, whiteSpace: "nowrap" }}>总效率</th>
                     </tr>
                   </thead>
                   <tbody>
                     {optResults.map((row, ri) => (
-                      <tr key={ri} style={{ borderBottom: "1px solid " + C.border, background: ri % 2 === 0 ? "#fff" : "#f8f9fa" }}>
+                      <tr key={ri}
+                        onClick={() => setOptRowSel(row.idx)}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          setOptRowSel(row.idx);
+                          setOptRowMenu({
+                            idx: row.idx,
+                            x: Math.min(e.clientX, window.innerWidth - 190),
+                            y: Math.min(e.clientY, window.innerHeight - 150),
+                          });
+                        }}
+                        style={{
+                          borderBottom: "1px solid " + C.border,
+                          background: optRowSel === row.idx ? C.accentD : ri % 2 === 0 ? "#fff" : "#f8f9fa",
+                          cursor: "default",
+                          outline: optRowSel === row.idx ? `1px solid ${C.accent}` : "none",
+                          outlineOffset: -1,
+                        }}>
                         <td style={{ padding: "10px 14px", textAlign: "center", fontFamily: "monospace", color: C.text1, fontWeight: 500 }}>{row.idx}</td>
                         <td style={{ padding: "10px 14px", textAlign: "center" }}>
                           <span style={{
@@ -2790,9 +3001,8 @@ function ProjectDetail({ project, onBack }: { project: (typeof RECENT_PROJECTS)[
                             background: row.constraint === "满足" ? "rgba(52,168,83,0.1)" : "rgba(217,48,37,0.1)",
                           }}>{row.constraint}</span>
                         </td>
-                        <td style={{ padding: "10px 14px", textAlign: "center", fontFamily: "monospace", color: C.text1 }}>{row.totalGain || "—"}</td>
-                        <td style={{ padding: "10px 14px", textAlign: "center", fontFamily: "monospace", color: C.text1 }}>{row.vswr || "—"}</td>
-                        <td style={{ padding: "10px 14px", textAlign: "center", fontFamily: "monospace", color: C.text2, fontSize: 10 }}>{row.pheno || "—"}</td>
+                        <td style={{ padding: "10px 14px", textAlign: "center", fontFamily: "monospace", color: C.text1 }}>{row.radiationEfficiency || "—"}</td>
+                        <td style={{ padding: "10px 14px", textAlign: "center", fontFamily: "monospace", color: C.text1 }}>{row.totalEfficiency || "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -2801,6 +3011,11 @@ function ProjectDetail({ project, onBack }: { project: (typeof RECENT_PROJECTS)[
                 <div style={{ padding: "40px", textAlign: "center", color: C.text3, fontSize: 12 }}>暂无优化结果数据</div>
               )}
             </div>
+            {optResults && (
+              <div style={{ fontSize: 10, color: C.text3, marginTop: 8 }}>
+                提示：点击选中某一行，右键可创建空间拓扑图 / 二维矩形图 / 表格
+              </div>
+            )}
           </div>
         );
       default:
@@ -3962,6 +4177,31 @@ function ProjectDetail({ project, onBack }: { project: (typeof RECENT_PROJECTS)[
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Results row context menu ── */}
+      {optRowMenu && (
+        <>
+          <div className="fixed inset-0 z-70" onClick={() => setOptRowMenu(null)} />
+          <div className="fixed z-80"
+            style={{ left: optRowMenu.x, top: optRowMenu.y, background: "#fff", border: `1px solid ${C.border}`, borderRadius: 10, boxShadow: "0 6px 24px rgba(0,0,0,0.14)", padding: "4px", minWidth: 180 }}>
+            <div style={{ padding: "6px 12px 4px", fontSize: 9, color: C.text3 }}>第 {optRowMenu.idx} 行 · 创建结果</div>
+            {[
+              { kind: "topology" as const, label: "创建空间拓扑图", icon: Globe },
+              { kind: "rect2d" as const,   label: "创建二维矩形图", icon: Activity },
+              { kind: "table" as const,    label: "创建表格",       icon: FileText },
+            ].map(item => (
+              <button key={item.kind}
+                onClick={() => createRowArtifact(optRowMenu.idx, item.kind)}
+                className="flex items-center gap-2.5 w-full text-left rounded-md px-3 py-2.5"
+                style={{ fontSize: 12, color: C.text1, background: "transparent", border: "none", cursor: "pointer" }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#f8f9fa")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                <item.icon size={13} style={{ color: C.text2 }} />{item.label}
+              </button>
+            ))}
+          </div>
+        </>
       )}
 
       {/* ── Sub-node context menu ── */}
