@@ -1555,211 +1555,88 @@ function TemplateDetail({ template, onBack }: { template: { name: string; catego
 
 // ── New Project Creation Wizard ──────────────────────────────────────
 const NEWPROJ_TREE: TreeNode[] = [
-  { id: "horn", label: "喇叭天线", icon: Radio, children: [
-    { id: "horn-rect",  label: "矩形喇叭", icon: Grid3X3 },
-    { id: "horn-circ",  label: "圆形喇叭", icon: Activity },
-  ]},
-  { id: "yagi",   label: "八木天线",       icon: Sliders },
-  { id: "patch",  label: "微带贴片天线",   icon: Layers },
-  { id: "array",  label: "天线阵列",       icon: Grid3X3 },
+  { id: "ai-hsg", label: "AI_ANT_HSG", icon: Radio },
 ];
 
 const TEMPLATE_LABEL: Record<string, string> = {
-  "horn-rect": "矩形喇叭天线", "horn-circ": "圆形喇叭天线",
-  "yagi": "八木天线", "patch": "微带贴片天线", "array": "天线阵列",
+  "ai-hsg": "AI_ANT_HSG",
 };
-const TEMPLATE_DESC: Record<string, string> = {
-  "horn-rect": "高增益 · 宽频带 · 矩形口径", "horn-circ": "旋转对称 · 低交叉极化 · 圆形口径",
-  "yagi": "定向高增益 · 结构简单 · 端射", "patch": "低剖面 · 易集成 · 线/圆极化",
-  "array": "波束可控 · 高增益 · 多阵元",
+// 模板示意图：与「创建项目 → 选择模板」保持一致，项目展示界面右侧工作区同样引用此处
+// （当前模板库仅有 AI_ANT_HSG 一种，未匹配到时回落到 AI_ANT_HSG）
+const TEMPLATE_IMAGE: Record<string, string> = {
+  "ai-hsg": "./template-phone.jpg",
 };
+const templateImage = (templateId?: string) => TEMPLATE_IMAGE[templateId || "ai-hsg"];
 
-function NewProjectWizard({ projectFolder, onBack, onCreate, editMode, editStepId, onCancel, onConfirm }: { projectFolder: string; onBack: () => void; onCreate: (name: string, template: string) => void; editMode?: boolean; editStepId?: string; onCancel?: () => void; onConfirm?: () => void }) {
-  const editStepMap: Record<string, number> = { "dp-freq": 2, "dp-radiation": 3, "dp-structure": 4, "dp-variables": 5, "dp-objective": 6, "dp-algorithm": 7 };
-  const initialEditStep = editStepId ? (editStepMap[editStepId] || 2) : 2;
+// ── Wizard step 1: parts of the AI_ANT_HSG template ──────────────────
+const HSG_PARTS = [
+  { id: "HSG_2", label: "HSG_2", image: "./part-hsg2.jpg", desc: "2 路 HSG 结构 · 单侧槽区域" },
+  { id: "HSG_5", label: "HSG_5", image: "./part-hsg5.jpg", desc: "5 路 HSG 结构 · 双侧槽区域" },
+] as const;
+
+// ── Wizard step 8 · 1 · Geometry sample config (AI_ANT_HSG) ──────────
+type GeoParam = { key: string; label: string; def: string; range: [number, number]; hint: string };
+const GEO_SAMPLE_PARAMS: GeoParam[] = [
+  { key: "slotMinCount", label: "槽区域最少数量 / 个", def: "1", range: [1, 12],
+    hint: "横/竖区域合计；方向随机，允许重叠。不是连通槽数量。范围 1–12。默认：1" },
+  { key: "slotMaxCount", label: "槽区域最多数量 / 个", def: "3", range: [1, 12],
+    hint: "重叠区域可以合并；竖槽保持全高。范围 1–12。默认：3" },
+  { key: "slotMinLen", label: "横槽最小长度 / mm", def: "5", range: [5, 10],
+    hint: "按现有展开网格生成；不改变竖槽规则。范围 5–10。默认：5" },
+  { key: "groundProb", label: "Ground 出现概率 / 比例", def: "0.5", range: [0, 1],
+    hint: "0 禁用，1 每个训练样本均请求 Ground；不满足接触时重采样。范围 0–1。默认：0.5" },
+  { key: "groundTangentialLen", label: "Ground 切向长度 / mm", def: "2", range: [0.2, 3],
+    hint: "本任务所有样本采用这一尺寸；跨接长度由真实接触位置确定。范围 0.2–3。默认：2" },
+  { key: "groundThicknessZ", label: "Ground Z 向厚度 / mm", def: "0.2", range: [0.05, 0.5],
+    hint: "体积 = 切向长度 × Z 向厚度 × 实际跨接长度；不独立指定体积。范围 0.05–0.5。默认：0.2" },
+  { key: "holeDiameter", label: "孔径直径 / mm", def: "1", range: [0.2, 1.5],
+    hint: "每个样本最多一个孔；边缘缺口按原模型处理。范围 0.2–1.5。默认：1" },
+  { key: "holeProb", label: "孔出现概率 / 比例", def: "0.5", range: [0, 1],
+    hint: "孔位置仍按原模型随机产生并修复。范围 0–1。默认：0.5" },
+  { key: "hsgLocalVarProb", label: "HSG 局部变化概率 / 比例", def: "0.5", range: [0, 1],
+    hint: "HSG 最终宽 2–7 mm、固定核心 2 mm、局部长度 1 mm 保持原定义。范围 0–1。默认：0.5" },
+  { key: "minConductorGap", label: "导体最小净距 / mm", def: "0.01", range: [0.005, 0.1],
+    hint: "统一 Copper 退让并检查 ITO；更改后应重新训练匹配模型。范围 0.005–0.1。默认：0.01" },
+];
+const GEO_SAMPLE_DEFAULT: Record<string, string> = GEO_SAMPLE_PARAMS
+  .reduce((acc, p) => { acc[p.key] = p.def; return acc; }, {} as Record<string, string>);
+
+function NewProjectWizard({ projectFolder, onBack, onCreate, editMode, editStepId, onCancel, onConfirm }: { projectFolder: string; onBack: () => void; onCreate: (name: string, template: string, part: string) => void; editMode?: boolean; editStepId?: string; onCancel?: () => void; onConfirm?: () => void }) {
+  const editStepMap: Record<string, number> = { "dp-geo": 3 };
+  const initialEditStep = editStepId ? (editStepMap[editStepId] || 3) : 3;
   const [wizStep, setWizStep] = useState(editMode ? initialEditStep : 0);
-  const [selNode, setSelNode] = useState("horn-rect");
+  const [selNode, setSelNode] = useState("ai-hsg");
+  // ── Step 1: selected part (HSG_2 / HSG_5) ──
+  const [selPart, setSelPart] = useState<"" | "HSG_2" | "HSG_5">("");
   const [sidebarW, setSidebarW] = useState(300);
   const [projName, setProjName] = useState("");
   const [savePath, setSavePath] = useState("C:/Users/AntennaDesign/Projects/" + projectFolder);
-  // ── Step 3: radiation range settings ──
-  const [thetaStart, setThetaStart] = useState("");
-  const [thetaEnd, setThetaEnd] = useState("");
-  const [thetaStep, setThetaStep] = useState("");
-  const [phiStart, setPhiStart] = useState("");
-  const [phiEnd, setPhiEnd] = useState("");
-  const [phiStep, setPhiStep] = useState("");
-  // ── Step 4: design variable settings (horn antenna params) ──
-  const HORN_PARAMS = [
-    { key: "a" as const,       label: "波导宽度 a (in)",          tentative: "4.3" },
-    { key: "b" as const,       label: "波导高度 b (in)",          tentative: "2.15" },
-    { key: "wlength" as const, label: "波导波长 wlength (in)",    tentative: "1.23" },
-    { key: "a1" as const,      label: "喇叭口径宽度 a1 (in)",     tentative: "20.5" },
-    { key: "b1" as const,      label: "喇叭口径高度 b1 (in)",     tentative: "15.18" },
-    { key: "plength" as const, label: "喇叭长度 plength (in)",    tentative: "22.47" },
-  ] as const;
-  const [hornMin, setHornMin] = useState<string[]>(["","","","","",""]);
-  const [hornMax, setHornMax] = useState<string[]>(["","","","","",""]);
-  const [hornTent, setHornTent] = useState<string[]>(HORN_PARAMS.map(p => p.tentative));
-  const [hornOpt, setHornOpt] = useState<boolean[]>([true, true, true, true, true, true]);
-  // (legacy — used by step 5)
-  const [arrElementCount, setArrElementCount] = useState("");
-  const [arrUniform, setArrUniform] = useState("是");
-  const [arrType, setArrType] = useState("全向阵列");
-  const [arrPhaseNoise, setArrPhaseNoise] = useState("");
-  const [arrMonteCarlo, setArrMonteCarlo] = useState("");
 
-  // ── Step 6: axis ratio/gain constraint & return loss constraint ──
-  type GainConRow = { id: number; checked: boolean; constraint: string; thetaStart: string; thetaEnd: string; phiStart: string; phiEnd: string; calc: string; conType: string; errorVal: string; threshold: string; weight: string };
-  type RLConRow = { id: number; checked: boolean; rlType: string; calc: string; conType: string; errorVal: string; realThreshold: string; imagThreshold: string; weight: string };
-  const nextGainConId = useRef(1);
-  const nextRLConId = useRef(1);
-  const [gainConRows, setGainConRows] = useState<GainConRow[]>([]);
-  const [rlConRows, setRLConRows] = useState<RLConRow[]>([]);
-
-  // Build theta/phi dropdown options from step 3 values
-  const thStart = parseFloat(thetaStart), thEnd = parseFloat(thetaEnd), thStep = parseFloat(thetaStep) || 1;
-  const thetaOpts: string[] = [];
-  if (!isNaN(thStart) && !isNaN(thEnd) && thStart <= thEnd) {
-    for (let v = thStart; v <= thEnd + 0.001; v += thStep) thetaOpts.push(String(Math.round(v * 10) / 10));
-  }
-  const phStart = parseFloat(phiStart), phEnd = parseFloat(phiEnd), phStep = parseFloat(phiStep) || 1;
-  const phiOpts: string[] = [];
-  if (!isNaN(phStart) && !isNaN(phEnd) && phStart <= phEnd) {
-    for (let v = phStart; v <= phEnd + 0.001; v += phStep) phiOpts.push(String(Math.round(v * 10) / 10));
-  }
-
-  if (wizStep !== 6) { }
-
-  const addGainConRow = () => {
-    const id = nextGainConId.current++;
-    setGainConRows(prev => [...prev, { id, checked: false, constraint: "轴比 (dB)", thetaStart, thetaEnd, phiStart, phiEnd, calc: "average", conType: "<=", errorVal: "", threshold: "", weight: "1" }]);
-  };
-  const delGainConRows = () => { setGainConRows(prev => prev.filter(r => !r.checked)); };
-  const toggleGainCon = (id: number) => { setGainConRows(prev => prev.map(r => r.id === id ? { ...r, checked: !r.checked } : r)); };
-  const setGainCon = (id: number, k: keyof GainConRow, v: string) => { setGainConRows(prev => prev.map(r => r.id === id ? { ...r, [k]: v } : r)); };
-
-  const addRLConRow = () => {
-    const id = nextRLConId.current++;
-    setRLConRows(prev => [...prev, { id, checked: false, rlType: "驻波比", calc: "average", conType: "<=", errorVal: "", realThreshold: "", imagThreshold: "", weight: "1" }]);
-  };
-  const delRLConRows = () => { setRLConRows(prev => prev.filter(r => !r.checked)); };
-  const toggleRLCon = (id: number) => { setRLConRows(prev => prev.map(r => r.id === id ? { ...r, checked: !r.checked } : r)); };
-  const setRLCon = (id: number, k: keyof RLConRow, v: string) => { setRLConRows(prev => prev.map(r => r.id === id ? { ...r, [k]: v } : r)); };
-
-  // ── Step 7: algorithm settings ──
-  const [algoName, setAlgoName] = useState("DCNSGA_II");
-  const [algoMaxEnv, setAlgoMaxEnv] = useState("5");
-  const [algoMaxGen, setAlgoMaxGen] = useState("5");
-  const [algoPopSize, setAlgoPopSize] = useState("3");
-  const [algoProcs, setAlgoProcs] = useState("2");
-  const [algoEvalTime, setAlgoEvalTime] = useState("1000");
-  const [algoResume, setAlgoResume] = useState("是");
-
-  // ── Step 5: gain target & return loss settings ──
-  type GainRow = { id: number; checked: boolean; target: string; thetaStart: string; thetaEnd: string; phiStart: string; phiEnd: string; calc: string; optType: string };
-  type RLRow = { id: number; checked: boolean; rlType: string; calc: string; optType: string };
-  const nextGainId = useRef(1);
-  const nextRLId = useRef(1);
-  const [gainRows, setGainRows] = useState<GainRow[]>([]);
-  const [rlRows, setRLRows] = useState<RLRow[]>([]);
-  const [r0Real, setR0Real] = useState("");
-  const [r0Imag, setR0Imag] = useState("");
-
-  // Init R0 defaults on first render of wizStep===5
-  const step5Init = useRef(false);
-  if (wizStep === 5 && !step5Init.current) {
-    step5Init.current = true;
-    if (r0Real === "" && r0Imag === "") { setR0Real("50"); setR0Imag("0"); }
-  }
-  if (wizStep !== 5) { step5Init.current = false; }
-
-  const addGainRow = () => {
-    const id = nextGainId.current++;
-    setGainRows(prev => [...prev, { id, checked: false, target: "轴比 (dB)", thetaStart, thetaEnd, phiStart, phiEnd, calc: "average", optType: "min" }]);
-  };
-  const delGainRows = () => { setGainRows(prev => prev.filter(r => !r.checked)); };
-  const toggleGain = (id: number) => { setGainRows(prev => prev.map(r => r.id === id ? { ...r, checked: !r.checked } : r)); };
-  const setGain = (id: number, k: keyof GainRow, v: string) => { setGainRows(prev => prev.map(r => r.id === id ? { ...r, [k]: v } : r)); };
-
-  const addRLRow = () => {
-    const id = nextRLId.current++;
-    setRLRows(prev => [...prev, { id, checked: false, rlType: "驻波比", calc: "average", optType: "min" }]);
-  };
-  const delRLRows = () => { setRLRows(prev => prev.filter(r => !r.checked)); };
-  const toggleRL = (id: number) => { setRLRows(prev => prev.map(r => r.id === id ? { ...r, checked: !r.checked } : r)); };
-  const setRL = (id: number, k: keyof RLRow, v: string) => { setRLRows(prev => prev.map(r => r.id === id ? { ...r, [k]: v } : r)); };
-
-  // Sync algoName when entering step 7 (all state vars now declared)
-  useEffect(() => {
-    if (wizStep !== 7 || editMode) return;
-    const hasC = gainConRows.length > 0 || rlConRows.length > 0;
-    const multi = gainRows.length > 1;
-    const defaultAlgo = !multi ? (hasC ? "DCNSGA_II" : "DifferentialEvolution")
-      : (hasC ? "DCNSGA_III" : "NSGA_III");
-    setAlgoName(defaultAlgo);
-  }, [wizStep, editMode]);
-
-  // ── Step 5 legacy: design variable settings ──
-  const [r1Min, setR1Min] = useState("");
-  const [r1Max, setR1Max] = useState("");
-  const [r1Tentative, setR1Tentative] = useState("");
-  const [r1Optimize, setR1Optimize] = useState(false);
-  // Angle rows computed from arrElementCount: each has min/max/tentative/checked
-  const elemCount = parseInt(arrElementCount) || 0;
-  const defaultAngle = elemCount > 0 ? String(Math.round(360 / elemCount)) : "";
-  const [angleMin, setAngleMin] = useState<string[]>([]);
-  const [angleMax, setAngleMax] = useState<string[]>([]);
-  const [angleTent, setAngleTent] = useState<string[]>([]);
-  const [angleOpt, setAngleOpt] = useState<boolean[]>([]);
-  useEffect(() => {
-    if (elemCount > 0) {
-      setAngleMin(Array(elemCount).fill("0"));
-      setAngleMax(Array(elemCount).fill("180"));
-      setAngleTent(Array(elemCount).fill(defaultAngle));
-      setAngleOpt(Array(elemCount).fill(false));
-    }
-  }, [arrElementCount]);
-
-  // ── Step 2: frequency band settings ──
-  const [freqRows, setFreqRows] = useState<{ id: number; band: string; min: string; max: string; count: string; checked: boolean }[]>([
-    { id: 1, band: "Sweep1", min: "", max: "", count: "", checked: false },
-  ]);
-  const nextFreqId = useRef(2);
-
-  const addFreqRow = () => {
-    const id = nextFreqId.current++;
-    setFreqRows(prev => [...prev, { id, band: "Sweep" + id, min: "", max: "", count: "", checked: false }]);
-  };
-  const delFreqRows = () => {
-    setFreqRows(prev => prev.filter(r => !r.checked));
-  };
-  const updateFreqRow = (id: number, field: string, val: string) => {
-    setFreqRows(prev => prev.map(r => r.id === id ? { ...r, [field]: val } : r));
-  };
-  const toggleFreqRow = (id: number) => {
-    setFreqRows(prev => prev.map(r => r.id === id ? { ...r, checked: !r.checked } : r));
+  // ── Step 3: geometry sample parameters (AI_ANT_HSG) ──
+  const [geoParams, setGeoParams] = useState<Record<string, string>>(GEO_SAMPLE_DEFAULT);
+  const setGeoParam = (key: string, value: string) => setGeoParams(prev => ({ ...prev, [key]: value }));
+  const geoOutOfRange = (p: GeoParam) => {
+    const raw = (geoParams[p.key] ?? "").trim();
+    if (!raw) return false;
+    const v = parseFloat(raw);
+    return isNaN(v) || v < p.range[0] || v > p.range[1];
   };
 
   const getSubtitle = () => {
     if (wizStep === 0) return "选择模板";
-    if (wizStep === 1) return "项目名称设置";
-    if (wizStep === 2) return "频段范围设置";
-    if (wizStep === 3) return "辐射范围设置";
-    if (wizStep === 4) return "设计变量设置";
-    if (wizStep === 5) return "";
-    if (wizStep === 6) return "";
-    if (wizStep === 7) return "算法参数设置";
+    if (wizStep === 1) return "部件选择";
+    if (wizStep === 2) return "项目名称设置";
+    if (wizStep === 3) return "几何样本参数";
     return "参数设置";
   };
 
   const getTitle = () => {
     if (editMode) return getSubtitle();
-    if (wizStep <= 1) return "优天线新建项目向导";
-    return `优天线创建项目（${wizStep-1}/6）`;
+    if (wizStep <= 2) return "优天线新建项目向导";
+    return "优天线创建项目";
   };
 
-  const WIZARD_H = wizStep <= 1 ? 620 : 520;
+  const WIZARD_H = wizStep === 3 ? 700 : 620;
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.15)" }}>
@@ -1783,21 +1660,11 @@ function NewProjectWizard({ projectFolder, onBack, onCreate, editMode, editStepI
                 <FileTree tree={NEWPROJ_TREE} selected={selNode} onSelect={setSelNode} level={0} />
               </div>
               <div className="flex-1 flex flex-col items-center justify-center" style={{ padding: "24px 28px", background: "#fff" }}>
-                <div style={{ background: C.accentD, borderRadius: 12, padding: "20px 28px", marginBottom: 16 }}>
-                  {/* Rectangular horn */}
-                  {selNode === "horn-rect" && <img src="./template-horn.png" alt="矩形喇叭天线" style={{ width: "100%", maxWidth: 300, borderRadius: 12 }} />}
-                  {/* Circular horn */}
-                  {selNode === "horn-circ" && <svg width="200" height="140" viewBox="0 0 200 140"><ellipse cx="100" cy="70" rx="48" ry="36" fill="none" stroke={C.accent} strokeWidth="1.8"/><path d="M100,34 L120,75 L100,106 L80,75 Z" fill="none" stroke={C.accent} strokeWidth="0.6" strokeDasharray="3,2"/><rect x="30" y="55" width="25" height="30" fill="none" stroke={C.accent} strokeWidth="1.2" rx="1"/><line x1="30" y1="70" x2="10" y2="70" stroke={C.accent} strokeWidth="1"/><circle cx="10" cy="70" r="2.5" fill={C.accent}/><text x="100" y="135" textAnchor="middle" fill={C.text3} fontSize="9">圆形喇叭 · 圆锥形口径</text></svg>}
-                  {/* Yagi */}
-                  {selNode === "yagi" && <svg width="200" height="140" viewBox="0 0 200 140"><line x1="20" y1="70" x2="180" y2="70" stroke={C.accent} strokeWidth="1.5"/><line x1="30" y1="40" x2="30" y2="100" stroke={C.accent} strokeWidth="1.8"/><line x1="70" y1="35" x2="70" y2="105" stroke={C.accent} strokeWidth="1.3"/><line x1="105" y1="35" x2="105" y2="105" stroke={C.accent} strokeWidth="1.3"/><line x1="145" y1="33" x2="145" y2="107" stroke={C.accent} strokeWidth="1.5"/><line x1="175" y1="38" x2="175" y2="102" stroke={C.accent} strokeWidth="1"/><text x="30" y="115" textAnchor="middle" fill={C.text3} fontSize="7">反射器</text><text x="100" y="115" textAnchor="middle" fill={C.text3} fontSize="7">引向器</text><text x="100" y="135" textAnchor="middle" fill={C.text3} fontSize="9">八木 · 端射阵列</text></svg>}
-                  {/* Patch */}
-                  {selNode === "patch" && <svg width="200" height="140" viewBox="0 0 200 140"><rect x="55" y="25" width="90" height="60" fill="rgba(26,115,232,0.1)" stroke={C.accent} strokeWidth="1.8" rx="2"/><rect x="60" y="30" width="80" height="50" fill={C.accent} opacity="0.25" stroke={C.accent} strokeWidth="1.2" rx="1"/><rect x="45" y="93" width="110" height="14" fill="rgba(180,210,250,0.5)" stroke="#b0c8e0" strokeWidth="0.8" rx="1"/><text x="100" y="45" textAnchor="middle" fill="#fff" fontSize="11" fontWeight="700">Patch</text><line x1="65" y1="80" x2="85" y2="60" stroke={C.accent} strokeWidth="0.6" strokeDasharray="2,2"/><text x="100" y="118" textAnchor="middle" fill={C.text3} fontSize="7">基板 FR4 · εr=4.4</text><text x="100" y="135" textAnchor="middle" fill={C.text3} fontSize="9">微带贴片 · 平面天线</text></svg>}
-                  {/* Array */}
-                  {selNode === "array" && <svg width="200" height="140" viewBox="0 0 200 140"><rect x="40" y="20" width="120" height="85" fill="none" stroke={C.accent} strokeWidth="1" strokeDasharray="4,3" rx="4"/>{[0,1,2].map(r => [0,1,2,3].map(c => <circle key={`${r}-${c}`} cx={60+c*30} cy={38+r*28} r="3.5" fill={C.accent} opacity="0.7"/>))}<line x1="180" y1="62" x2="160" y2="62" stroke={C.accent} strokeWidth="0.8"/><circle cx="180" cy="62" r="2.5" fill={C.accent}/><text x="100" y="128" textAnchor="middle" fill={C.text3} fontSize="7">3×4 矩形栅格阵列</text><text x="100" y="140" textAnchor="middle" fill={C.text3} fontSize="9">天线阵列 · 波束可调</text></svg>}
+                <div style={{ background: C.accentD, borderRadius: 12, padding: "14px 18px", marginBottom: 16 }}>
+                  {selNode === "ai-hsg" && <img src={templateImage(selNode)} alt="AI_ANT_HSG 模板" style={{ display: "block", height: 368, width: "auto", borderRadius: 8 }} />}
                 </div>
-                <h3 style={{ fontSize: 15, fontWeight: 600, color: C.text1, marginBottom: 4, textAlign: "center" }}>
+                <h3 style={{ fontSize: 15, fontWeight: 600, color: C.text1, margin: 0, textAlign: "center" }}>
                   {TEMPLATE_LABEL[selNode]}</h3>
-                <p style={{ fontSize: 11, color: C.text3 }}>{TEMPLATE_DESC[selNode]}</p>
               </div>
             </div>
             <div className="flex items-center justify-between px-6 py-3.5" style={{ borderTop: `1px solid ${C.border}`, background: "#fafbfc" }}>
@@ -1811,13 +1678,57 @@ function NewProjectWizard({ projectFolder, onBack, onCreate, editMode, editStepI
           </>
         )}
 
+        {/* ── Step 1: part selection (HSG_2 / HSG_5) ── */}
         {wizStep === 1 && (
+          <>
+            <div className="flex-1 overflow-y-auto" style={{ padding: "18px 40px", background: "#fff", scrollbarWidth: "none" }}>
+              <div className="flex items-center gap-3 mb-4 py-2 px-3 rounded-lg" style={{ background: C.accentD }}>
+                <Radio size={16} style={{ color: C.accent }} />
+                <span style={{ fontSize: 12, color: C.text1 }}>已选模板：{TEMPLATE_LABEL[selNode]}</span>
+              </div>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "#111", marginBottom: 12 }}>请选择部件</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                {HSG_PARTS.map(part => {
+                  const active = selPart === part.id;
+                  return (
+                    <button key={part.id} onClick={() => setSelPart(part.id)}
+                      className="rounded-xl"
+                      style={{ background: "#fff", border: `1.5px solid ${active ? C.accent : C.border}`, boxShadow: active ? "0 0 0 3px rgba(26,115,232,0.08)" : "none", padding: "16px 18px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
+                      <div style={{ background: active ? C.accentD : "#f8f9fa", borderRadius: 10, padding: "12px 16px", width: "100%", boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <img src={part.image} alt={`${part.label} 部件示意图`}
+                          style={{ display: "block", height: 240, width: "auto", borderRadius: 8 }} />
+                      </div>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: active ? C.accent : C.text1 }}>{part.label}</span>
+                      <span style={{ fontSize: 11, color: C.text3 }}>{part.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="flex items-center justify-between px-6 py-3.5" style={{ borderTop: `1px solid ${C.border}`, background: "#fafbfc" }}>
+              <button onClick={() => setWizStep(0)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
+                style={{ fontSize: 12, color: C.text2, background: "transparent", border: "none", cursor: "pointer" }}>
+                <ChevronLeft size={13} />上一步
+              </button>
+              <button onClick={() => setWizStep(2)}
+                disabled={!selPart}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg"
+                style={{ fontSize: 12, fontWeight: 500, color: "#fff", background: selPart ? C.accent : C.borderA, border: "none", cursor: selPart ? "pointer" : "default" }}>
+                下一步 <ChevronRight size={13} />
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* ── Step 2: project name settings ── */}
+        {wizStep === 2 && (
           <>
             <div className="flex-1 flex" style={{ padding: "20px 40px", background: "#fff", alignItems: "flex-start" }}>
               <div style={{ width: "100%", maxWidth: 460 }}>
-                <div className="flex items-center gap-3 mb-5 py-2 px-3 rounded-lg" style={{ background: C.accentD }}>
+                <div className="flex items-center gap-3 mb-4 py-2 px-3 rounded-lg" style={{ background: C.accentD }}>
                   <Radio size={16} style={{ color: C.accent }} />
-                  <span style={{ fontSize: 12, color: C.text1 }}>已选：{TEMPLATE_LABEL[selNode]}</span>
+                  <span style={{ fontSize: 12, color: C.text1 }}>已选：{TEMPLATE_LABEL[selNode]} · 部件 {selPart}</span>
                 </div>
                 <div style={{ marginBottom: 16 }}>
                   <p style={{ fontSize: 12, fontWeight: 600, color: "#111", marginBottom: 6 }}>项目名称</p>
@@ -1828,13 +1739,13 @@ function NewProjectWizard({ projectFolder, onBack, onCreate, editMode, editStepI
               </div>
             </div>
             <div className="flex items-center justify-between px-6 py-3.5" style={{ borderTop: `1px solid ${C.border}`, background: "#fafbfc" }}>
-              <button onClick={() => setWizStep(0)}
+              <button onClick={() => setWizStep(1)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
                 style={{ fontSize: 12, color: C.text2, background: "transparent", border: "none", cursor: "pointer" }}>
                 <ChevronLeft size={13} />上一步
               </button>
               <div className="flex items-center gap-3">
-                <button onClick={() => { onCreate(projName.trim() || "新建项目", selNode); setWizStep(2); }}
+                <button onClick={() => { onCreate(projName.trim() || "新建项目", selNode, selPart || "HSG_2"); setWizStep(3); }}
                   disabled={!projName.trim()}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg"
                   style={{ fontSize: 12, fontWeight: 500, color: "#fff", background: projName.trim() ? C.accent : C.borderA, border: "none", cursor: projName.trim() ? "pointer" : "default" }}>
@@ -1845,500 +1756,40 @@ function NewProjectWizard({ projectFolder, onBack, onCreate, editMode, editStepI
           </>
         )}
 
-        {/* ── Step 2: frequency band settings ── */}
-        {wizStep === 2 && (
-          <>
-            <div className="flex-1 overflow-y-auto" style={{ padding: "16px 28px", background: "#fff", scrollbarWidth: "none" }}>
-              {/* Table header */}
-              <div className="flex items-center" style={{ padding: "8px 10px", background: "#f8f9fa", borderRadius: 8, marginBottom: 4, fontSize: 11, fontWeight: 600, color: C.text2 }}>
-                <span style={{ width: 32, textAlign: "center" }}>☐</span>
-                <span style={{ flex: 2, fontSize: 12, fontWeight: 600, color: "#111" }}>频段</span>
-                <span style={{ flex: 2, textAlign: "center", fontSize: 12, fontWeight: 600, color: "#111" }}>频率下限 (MHz)</span>
-                <span style={{ flex: 2, textAlign: "center", fontSize: 12, fontWeight: 600, color: "#111" }}>频率上限 (MHz)</span>
-                <span style={{ flex: 1.5, textAlign: "center", fontSize: 12, fontWeight: 600, color: "#111" }}>频点个数</span>
-              </div>
-              {/* Rows */}
-              {freqRows.map((r) => (
-                <div key={r.id} className="flex items-center" style={{ padding: "5px 10px", borderBottom: `1px solid ${C.border}`, marginBottom: 2 }}>
-                  <div style={{ width: 32, display: "flex", justifyContent: "center" }}>
-                    <button onClick={() => toggleFreqRow(r.id)}
-                      style={{ width: 18, height: 18, borderRadius: 4, border: `1.5px solid ${r.checked ? C.accent : C.borderA}`, background: r.checked ? C.accent : "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {r.checked && <span style={{ fontSize: 11, color: "#fff", fontWeight: 700 }}>✓</span>}
-                    </button>
-                  </div>
-                  <span style={{ flex: 2, fontSize: 12, fontFamily: "monospace", color: C.text1 }}>{r.band}</span>
-                  <div style={{ flex: 2, padding: "0 4px" }}>
-                    <input value={r.min} onChange={e => updateFreqRow(r.id, "min", e.target.value)}
-                      style={{ width: "100%", padding: "5px 8px", fontSize: 12, fontFamily: "monospace", color: C.text1, border: `1px solid ${C.borderA}`, borderRadius: 6, outline: "none", textAlign: "center", boxSizing: "border-box" }}
-                      onFocus={e => e.target.style.borderColor = C.accent} onBlur={e => e.target.style.borderColor = C.borderA} />
-                  </div>
-                  <div style={{ flex: 2, padding: "0 4px" }}>
-                    <input value={r.max} onChange={e => updateFreqRow(r.id, "max", e.target.value)}
-                      style={{ width: "100%", padding: "5px 8px", fontSize: 12, fontFamily: "monospace", color: C.text1, border: `1px solid ${C.borderA}`, borderRadius: 6, outline: "none", textAlign: "center", boxSizing: "border-box" }}
-                      onFocus={e => e.target.style.borderColor = C.accent} onBlur={e => e.target.style.borderColor = C.borderA} />
-                  </div>
-                  <div style={{ flex: 1.5, padding: "0 4px" }}>
-                    <input value={r.count} onChange={e => updateFreqRow(r.id, "count", e.target.value)}
-                      style={{ width: "100%", padding: "5px 8px", fontSize: 12, fontFamily: "monospace", color: C.text1, border: `1px solid ${C.borderA}`, borderRadius: 6, outline: "none", textAlign: "center", boxSizing: "border-box" }}
-                      onFocus={e => e.target.style.borderColor = C.accent} onBlur={e => e.target.style.borderColor = C.borderA} />
-                  </div>
-                </div>
-              ))}
-              {/* Add / Delete buttons */}
-              <div className="flex justify-end gap-2 mt-3">
-                <button onClick={addFreqRow}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
-                  style={{ fontSize: 11, color: C.accent, background: C.accentD, border: `1px solid ${C.borderA}`, cursor: "pointer" }}>
-                  <Plus size={12} />添加行
-                </button>
-                <button onClick={delFreqRows} disabled={!freqRows.some(r => r.checked)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
-                  style={{ fontSize: 11, color: freqRows.some(r => r.checked) ? "#d93025" : C.text3, background: freqRows.some(r => r.checked) ? "rgba(217,48,37,0.06)" : "#f1f3f4", border: `1px solid ${freqRows.some(r => r.checked) ? "rgba(217,48,37,0.3)" : C.borderA}`, cursor: freqRows.some(r => r.checked) ? "pointer" : "default" }}>
-                  <Trash2 size={12} />删除行
-                </button>
-              </div>
-            </div>
-            <div className="flex items-center justify-between px-6 py-3.5" style={{ borderTop: `1px solid ${C.border}`, background: "#fafbfc" }}>
-              {editMode ? (<>
-                <button onClick={() => onCancel?.()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
-                  style={{ fontSize: 12, color: C.text2, background: "transparent", border: "none", cursor: "pointer" }}>取消</button>
-                <button onClick={() => onConfirm?.()}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg"
-                  style={{ fontSize: 12, fontWeight: 500, color: "#fff", background: C.accent, border: "none", cursor: "pointer" }}><CheckCircle size={13} />确认</button>
-              </>) : (<>
-                <div />
-                <button onClick={() => { setWizStep(3); }}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg"
-                  style={{ fontSize: 12, fontWeight: 500, color: "#fff", background: C.accent, border: "none", cursor: "pointer" }}>
-                  下一步 <ChevronRight size={13} />
-                </button>
-              </>)}
-            </div>
-          </>
-        )}
-
-        {/* ── Step 3: Radiation range settings ── */}
+        {/* ── Step 3: geometry sample parameter settings (AI_ANT_HSG) ── */}
         {wizStep === 3 && (
           <>
-            <div className="flex-1 overflow-y-auto" style={{ padding: "24px 32px", background: "#fff", scrollbarWidth: "none" }}>
-              <div style={{ display: "flex", gap: 28 }}>
-                {/* Left: Theta */}
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: "#111", marginBottom: 12 }}>θ 角度范围</p>
-                  {[
-                    { key: "thetaStart", label: "起始 θ (°)", value: thetaStart, setter: (v:string)=>setThetaStart(v) },
-                    { key: "thetaEnd", label: "终止 θ (°)", value: thetaEnd, setter: (v:string)=>setThetaEnd(v) },
-                    { key: "thetaStep", label: "θ 步长 (°)", value: thetaStep, setter: (v:string)=>setThetaStep(v) },
-                  ].map(({ key, label, value, setter }) => (
-                    <div key={key} style={{ marginBottom: 12 }}>
-                      <p style={{ fontSize: 12, fontWeight: 600, color: "#111", marginBottom: 4 }}>{label}</p>
-                      <input value={value} onChange={e => setter(e.target.value)}
-                        style={{ width: "100%", padding: "7px 12px", fontSize: 12, fontFamily: "monospace", color: C.text1, border: `1px solid ${C.borderA}`, borderRadius: 8, outline: "none", boxSizing: "border-box" }}
-                        onFocus={e => e.target.style.borderColor = C.accent} onBlur={e => e.target.style.borderColor = C.borderA} />
-                    </div>
-                  ))}
-                </div>
-                {/* Right: Phi */}
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: "#111", marginBottom: 12 }}>φ 角度范围</p>
-                  {[
-                    { key: "phiStart", label: "起始 φ (°)", value: phiStart, setter: (v:string)=>setPhiStart(v) },
-                    { key: "phiEnd", label: "终止 φ (°)", value: phiEnd, setter: (v:string)=>setPhiEnd(v) },
-                    { key: "phiStep", label: "φ 步长 (°)", value: phiStep, setter: (v:string)=>setPhiStep(v) },
-                  ].map(({ key, label, value, setter }) => (
-                    <div key={key} style={{ marginBottom: 12 }}>
-                      <p style={{ fontSize: 12, fontWeight: 600, color: "#111", marginBottom: 4 }}>{label}</p>
-                      <input value={value} onChange={e => setter(e.target.value)}
-                        style={{ width: "100%", padding: "7px 12px", fontSize: 12, fontFamily: "monospace", color: C.text1, border: `1px solid ${C.borderA}`, borderRadius: 8, outline: "none", boxSizing: "border-box" }}
-                        onFocus={e => e.target.style.borderColor = C.accent} onBlur={e => e.target.style.borderColor = C.borderA} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-between px-6 py-3.5" style={{ borderTop: `1px solid ${C.border}`, background: "#fafbfc" }}>
-              {editMode ? (<>
-                <button onClick={() => onCancel?.()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
-                  style={{ fontSize: 12, color: C.text2, background: "transparent", border: "none", cursor: "pointer" }}>取消</button>
-                <button onClick={() => onConfirm?.()}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg"
-                  style={{ fontSize: 12, fontWeight: 500, color: "#fff", background: C.accent, border: "none", cursor: "pointer" }}><CheckCircle size={13} />确认</button>
-              </>) : (<>
-                <button onClick={() => setWizStep(2)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
-                  style={{ fontSize: 12, color: C.text2, background: "transparent", border: "none", cursor: "pointer" }}>
-                  <ChevronLeft size={13} />上一步
-                </button>
-                <button onClick={() => { setWizStep(4); }}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg"
-                  style={{ fontSize: 12, fontWeight: 500, color: "#fff", background: C.accent, border: "none", cursor: "pointer" }}>
-                  下一步 <ChevronRight size={13} />
-                </button>
-              </>)}
-            </div>
-          </>
-        )}
-
-        {/* ── Step 4: Design variable settings (horn antenna) ── */}
-        {wizStep === 4 && (
-          <>
-            <div className="flex flex-1 overflow-hidden">
-              {/* Left: table */}
-              <div style={{ width: "50%", overflowY: "auto", scrollbarWidth: "none", padding: "10px 12px", background: "#fff", flexShrink: 0 }}>
-              <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${C.border}` }}>
-                {/* Table header */}
-                <div className="flex items-center" style={{ padding: "9px 14px", background: "#f8f9fa", borderBottom: `1px solid ${C.border}`, fontSize: 11, fontWeight: 600, color: C.text2 }}>
-                  <span style={{ flex: 3 }}>设计参数</span>
-                  <span style={{ flex: 2, textAlign: "center" }}>最小值</span>
-                  <span style={{ flex: 2, textAlign: "center" }}>最大值</span>
-                  <span style={{ flex: 2, textAlign: "center" }}>暂定值</span>
-                  <span style={{ width: 60, textAlign: "center" }}>是否优化</span>
-                </div>
-
-                {HORN_PARAMS.map((p, i) => (
-                  <div key={p.key} className="flex items-center" style={{ padding: "7px 14px", borderBottom: `1px solid ${C.border}`, background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
-                    <span style={{ flex: 3, fontSize: 12, fontWeight: 600, color: "#111" }}>{p.label}</span>
-                    <div style={{ flex: 2, padding: "0 4px" }}>
-                      <input value={hornMin[i]} onChange={e => { const nv = [...hornMin]; nv[i] = e.target.value; setHornMin(nv); }}
-                        style={{ width: "100%", padding: "5px 6px", fontSize: 11, fontWeight: 500, fontFamily: "monospace", color: "#111", border: `1px solid ${C.borderA}`, borderRadius: 6, outline: "none", textAlign: "center", boxSizing: "border-box" }}
-                        onFocus={e => e.target.style.borderColor = C.accent} onBlur={e => e.target.style.borderColor = C.borderA} />
-                    </div>
-                    <div style={{ flex: 2, padding: "0 4px" }}>
-                      <input value={hornMax[i]} onChange={e => { const nv = [...hornMax]; nv[i] = e.target.value; setHornMax(nv); }}
-                        style={{ width: "100%", padding: "5px 6px", fontSize: 11, fontWeight: 500, fontFamily: "monospace", color: "#111", border: `1px solid ${C.borderA}`, borderRadius: 6, outline: "none", textAlign: "center", boxSizing: "border-box" }}
-                        onFocus={e => e.target.style.borderColor = C.accent} onBlur={e => e.target.style.borderColor = C.borderA} />
-                    </div>
-                    <div style={{ flex: 2, padding: "0 4px" }}>
-                      <input value={hornTent[i]} onChange={e => {
-                        const v = e.target.value; const nv = [...hornTent]; nv[i] = v; setHornTent(nv);
-                      }}
-                        style={{ width: "100%", padding: "5px 6px", fontSize: 11, fontWeight: 500, fontFamily: "monospace", color: "#111", border: `1px solid ${C.borderA}`, borderRadius: 6, outline: "none", textAlign: "center", boxSizing: "border-box" }}
-                        onFocus={e => e.target.style.borderColor = C.accent} onBlur={e => e.target.style.borderColor = C.borderA} />
-                    </div>
-                    <div style={{ width: 60, display: "flex", justifyContent: "center" }}>
-                      <button onClick={() => { const nv = [...hornOpt]; nv[i] = !nv[i]; setHornOpt(nv); }}
-                        style={{ width: 20, height: 20, borderRadius: 4, border: `1.5px solid ${hornOpt[i] ? C.accent : C.borderA}`, background: hornOpt[i] ? C.accent : "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        {hornOpt[i] && <span style={{ fontSize: 12, color: "#fff", fontWeight: 700 }}>✓</span>}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              </div>
-
-              {/* Right: template preview */}
-              <div style={{ flex: 1, background: "#fafbfc", borderLeft: `1px solid ${C.border}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "20px 26px" }}>
-                <div style={{ background: C.accentD, borderRadius: 14, padding: "24px 28px", marginBottom: 14 }}>
-                  {selNode === "horn-rect" && <img src="./template-horn.png" alt="矩形喇叭天线" style={{ width: "100%", maxWidth: 280, borderRadius: 14 }} />}
-                  {selNode === "horn-circ" && <svg width="170" height="130" viewBox="0 0 170 130"><ellipse cx="85" cy="65" rx="42" ry="34" fill="none" stroke={C.accent} strokeWidth="2.2"/><path d="M85,31 L108,67 L85,99 L62,67 Z" fill="none" stroke={C.accent} strokeWidth="0.8" strokeDasharray="4,3"/><rect x="15" y="48" width="20" height="34" fill="none" stroke={C.accent} strokeWidth="1.4" rx="1"/><line x1="15" y1="65" x2="5" y2="65" stroke={C.accent} strokeWidth="1.2"/><circle cx="5" cy="65" r="2" fill={C.accent}/><text x="85" y="126" textAnchor="middle" fill={C.text3} fontSize="8">圆形喇叭</text></svg>}
-                  {selNode === "yagi" && <svg width="170" height="130" viewBox="0 0 170 130"><line x1="10" y1="65" x2="160" y2="65" stroke={C.accent} strokeWidth="1.5"/><line x1="22" y1="30" x2="22" y2="100" stroke={C.accent} strokeWidth="2.2"/><line x1="62" y1="33" x2="62" y2="97" stroke={C.accent} strokeWidth="1.6"/><line x1="100" y1="33" x2="100" y2="97" stroke={C.accent} strokeWidth="1.6"/><line x1="138" y1="30" x2="138" y2="100" stroke={C.accent} strokeWidth="1.8"/><line x1="160" y1="36" x2="160" y2="94" stroke={C.accent} strokeWidth="1.2"/><text x="85" y="126" textAnchor="middle" fill={C.text3} fontSize="8">八木天线</text></svg>}
-                  {selNode === "patch" && <svg width="170" height="130" viewBox="0 0 170 130"><rect x="42" y="22" width="86" height="58" fill="rgba(26,115,232,0.1)" stroke={C.accent} strokeWidth="2.2" rx="2"/><rect x="48" y="28" width="74" height="46" fill={C.accent} opacity="0.3" stroke={C.accent} strokeWidth="1.5" rx="1"/><rect x="32" y="88" width="106" height="12" fill="rgba(180,210,250,0.5)" stroke="#b0c8e0" strokeWidth="0.8" rx="1"/><text x="85" y="55" textAnchor="middle" fill="#fff" fontSize="12" fontWeight="700">Patch</text><text x="85" y="126" textAnchor="middle" fill={C.text3} fontSize="8">微带贴片</text></svg>}
-                  {selNode === "array" && <svg width="170" height="130" viewBox="0 0 170 130"><rect x="30" y="15" width="110" height="80" fill="none" stroke={C.accent} strokeWidth="1.3" strokeDasharray="5,4" rx="5"/>{[0,1].map(r => [0,1,2,3].map(c => <circle key={`${r}-${c}`} cx={48+c*27} cy={33+r*42} r="3.5" fill={C.accent} opacity="0.65"/>))}<line x1="150" y1="55" x2="140" y2="55" stroke={C.accent} strokeWidth="1"/><circle cx="150" cy="55" r="2.5" fill={C.accent}/><text x="85" y="126" textAnchor="middle" fill={C.text3} fontSize="8">天线阵列</text></svg>}
-                </div>
-                <p style={{ fontSize: 13, fontWeight: 600, color: C.text1, textAlign: "center", marginBottom: 4 }}>
-                  {TEMPLATE_LABEL[selNode]}</p>
-                <p style={{ fontSize: 11, color: C.text3, textAlign: "center", marginBottom: 8 }}>{TEMPLATE_DESC[selNode]}</p>
-              </div>
-            </div>
-            <div className="flex items-center justify-between px-6 py-3.5" style={{ borderTop: `1px solid ${C.border}`, background: "#fafbfc" }}>
-              {editMode ? (<>
-                <button onClick={() => onCancel?.()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
-                  style={{ fontSize: 12, color: C.text2, background: "transparent", border: "none", cursor: "pointer" }}>取消</button>
-                <button onClick={() => onConfirm?.()}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg"
-                  style={{ fontSize: 12, fontWeight: 500, color: "#fff", background: C.accent, border: "none", cursor: "pointer" }}><CheckCircle size={13} />确认</button>
-              </>) : (<>
-                <button onClick={() => setWizStep(3)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
-                  style={{ fontSize: 12, color: C.text2, background: "transparent", border: "none", cursor: "pointer" }}>
-                  <ChevronLeft size={13} />上一步
-                </button>
-                <button onClick={() => { setWizStep(5); }}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg"
-                  style={{ fontSize: 12, fontWeight: 500, color: "#fff", background: C.accent, border: "none", cursor: "pointer" }}>
-                  下一步 <ChevronRight size={13} />
-                </button>
-              </>)}
-            </div>
-          </>
-        )}
-
-        {/* ── Step 5: Gain target / Return loss settings ── */}
-        {wizStep === 5 && (
-          <>
-            <div className="flex-1 overflow-y-auto" style={{ padding: "10px 16px", background: "#fff", scrollbarWidth: "none" }}>
-              {/* ── Gain/AR target table ── */}
-              <p style={{ fontSize: 12, fontWeight: 700, color: "#111", marginBottom: 6 }}>轴比/增益目标设置</p>
-              <div style={{ marginBottom: 16 }}>
-                <div className="flex items-center" style={{ padding: "5px 12px", background: "#f8f9fa", borderRadius: "8px 8px 0 0", border: "1px solid " + C.border, borderBottom: "none", fontSize: 11, fontWeight: 600, color: C.text2, gap: 4 }}>
-                  <span style={{ width: 24, textAlign: "center", flexShrink: 0 }}></span>
-                  <span style={{ flex: 1.5 }}>目标</span>
-                  <span style={{ flex: 1, textAlign: "center" }}>起始θ (°)</span>
-                  <span style={{ flex: 1, textAlign: "center" }}>终止θ (°)</span>
-                  <span style={{ flex: 1, textAlign: "center" }}>起始φ (°)</span>
-                  <span style={{ flex: 1, textAlign: "center" }}>终止φ (°)</span>
-                  <span style={{ flex: 1, textAlign: "center" }}>计算方式</span>
-                  <span style={{ flex: 1, textAlign: "center" }}>优化类型</span>
-                </div>
-                {gainRows.map(r => (
-                  <div key={r.id} className="flex items-center" style={{ padding: "4px 12px", border: "1px solid " + C.border, borderTop: "none", gap: 4 }}>
-                    <button onClick={() => toggleGain(r.id)} style={{ width: 20, height: 16, borderRadius: 3, border: "1.5px solid " + (r.checked ? C.accent : C.borderA), background: r.checked ? C.accent : "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      {r.checked && <span style={{ fontSize: 9, color: "#fff", fontWeight: 700 }}>✓</span>}
-                    </button>
-                    <select value={r.target} onChange={e => setGain(r.id, "target", e.target.value)} style={{ flex: 1.5, padding: "4px", fontSize: 11, color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", background: "#fff", cursor: "pointer", boxSizing: "border-box", minWidth: 0 }}>
-                      {["轴比 (dB)","总增益 (dB)","水平增益 (dB)","垂直增益 (dB)","右旋增益 (dB)","左旋增益 (dB)"].map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <select value={r.thetaStart} onChange={e => setGain(r.id, "thetaStart", e.target.value)} style={{ flex: 1, padding: "4px", fontSize: 11, color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", background: "#fff", cursor: "pointer", boxSizing: "border-box", minWidth: 0 }}>
-                      {(thetaOpts.length ? thetaOpts : [thetaStart || r.thetaStart]).map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <select value={r.thetaEnd} onChange={e => setGain(r.id, "thetaEnd", e.target.value)} style={{ flex: 1, padding: "4px", fontSize: 11, color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", background: "#fff", cursor: "pointer", boxSizing: "border-box", minWidth: 0 }}>
-                      {(thetaOpts.length ? thetaOpts : [thetaEnd || r.thetaEnd]).map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <select value={r.phiStart} onChange={e => setGain(r.id, "phiStart", e.target.value)} style={{ flex: 1, padding: "4px", fontSize: 11, color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", background: "#fff", cursor: "pointer", boxSizing: "border-box", minWidth: 0 }}>
-                      {(phiOpts.length ? phiOpts : [phiStart || r.phiStart]).map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <select value={r.phiEnd} onChange={e => setGain(r.id, "phiEnd", e.target.value)} style={{ flex: 1, padding: "4px", fontSize: 11, color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", background: "#fff", cursor: "pointer", boxSizing: "border-box", minWidth: 0 }}>
-                      {(phiOpts.length ? phiOpts : [phiEnd || r.phiEnd]).map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <select value={r.calc} onChange={e => setGain(r.id, "calc", e.target.value)} style={{ flex: 1, padding: "4px", fontSize: 11, color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", background: "#fff", cursor: "pointer", boxSizing: "border-box", minWidth: 0 }}>
-                      {["average","min","max","rms"].map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <select value={r.optType} onChange={e => setGain(r.id, "optType", e.target.value)} style={{ flex: 1, padding: "4px", fontSize: 11, color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", background: "#fff", cursor: "pointer", boxSizing: "border-box", minWidth: 0 }}>
-                      {["min","max"].map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                  </div>
-                ))}
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, padding: "6px 0" }}>
-                  <button onClick={addGainRow} className="flex items-center gap-1 px-3 py-1 rounded-lg" style={{ fontSize: 10, color: C.accent, background: C.accentD, border: "1px solid " + C.borderA, cursor: "pointer" }}><Plus size={10} />添加行</button>
-                  <button onClick={delGainRows} disabled={!gainRows.some(r => r.checked)} className="flex items-center gap-1 px-3 py-1 rounded-lg" style={{ fontSize: 10, color: gainRows.some(r => r.checked) ? "#d93025" : C.text3, background: gainRows.some(r => r.checked) ? "rgba(217,48,37,0.06)" : "#f1f3f4", border: "1px solid " + (gainRows.some(r => r.checked) ? "rgba(217,48,37,0.3)" : C.borderA), cursor: gainRows.some(r => r.checked) ? "pointer" : "default" }}><Trash2 size={10} />删除行</button>
-                </div>
-              </div>
-
-              {/* ── Return loss target table ── */}
-              <div className="flex items-center gap-4" style={{ marginBottom: 6 }}>
-                <p style={{ fontSize: 12, fontWeight: 700, color: "#111" }}>回波损失目标设置</p>
+            <div className="flex-1 overflow-y-auto" style={{ padding: "16px 28px", background: "#fff", scrollbarWidth: "none" }}>
+              <div className="flex items-center justify-between" style={{ marginBottom: 10 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#111" }}>
+                  几何样本参数
+                  <span style={{ fontSize: 11, fontWeight: 400, color: C.text2, marginLeft: 8 }}>AI_ANT_HSG · {selPart || "HSG_2"}</span>
+                </span>
                 <div className="flex items-center gap-3">
-                  <span style={{ fontSize: 11, color: C.text2 }}>R0设置：</span>
-                  <span style={{ fontSize: 11, color: C.text2 }}>R0实部</span>
-                  <input value={r0Real} onChange={e => setR0Real(e.target.value)}
-                    style={{ width: 72, padding: "3px 8px", fontSize: 11, fontFamily: "monospace", color: C.text1, border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", textAlign: "center", boxSizing: "border-box" }}
-                    onFocus={e => e.target.style.borderColor = C.accent} onBlur={e => e.target.style.borderColor = C.borderA} />
-                  <span style={{ fontSize: 11, color: C.text2 }}>R0虚部：</span>
-                  <input value={r0Imag} onChange={e => setR0Imag(e.target.value)}
-                    style={{ width: 72, padding: "3px 8px", fontSize: 11, fontFamily: "monospace", color: C.text1, border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", textAlign: "center", boxSizing: "border-box" }}
-                    onFocus={e => e.target.style.borderColor = C.accent} onBlur={e => e.target.style.borderColor = C.borderA} />
+                  {GEO_SAMPLE_PARAMS.some(p => geoOutOfRange(p)) &&
+                    <span style={{ fontSize: 11, color: "#d93025" }}>存在超出范围的取值</span>}
+                  <button onClick={() => setGeoParams({ ...GEO_SAMPLE_DEFAULT })}
+                    style={{ fontSize: 11, color: C.accent, background: "transparent", border: "none", cursor: "pointer" }}>恢复默认</button>
                 </div>
               </div>
-              <div style={{ marginBottom: 14 }}>
-                <div className="flex items-center" style={{ padding: "5px 12px", background: "#f8f9fa", borderRadius: "8px 8px 0 0", border: "1px solid " + C.border, borderBottom: "none", fontSize: 11, fontWeight: 600, color: C.text2, gap: 4 }}>
-                  <span style={{ width: 24, textAlign: "center", flexShrink: 0 }}></span>
-                  <span style={{ flex: 2 }}>回波损失类型</span>
-                  <span style={{ flex: 1.5, textAlign: "center" }}>计算方式</span>
-                  <span style={{ flex: 1.5, textAlign: "center" }}>优化类型</span>
-                </div>
-                {rlRows.map(r => (
-                  <div key={r.id} className="flex items-center" style={{ padding: "4px 12px", border: "1px solid " + C.border, borderTop: "none", gap: 4 }}>
-                    <button onClick={() => toggleRL(r.id)} style={{ width: 20, height: 16, borderRadius: 3, border: "1.5px solid " + (r.checked ? C.accent : C.borderA), background: r.checked ? C.accent : "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      {r.checked && <span style={{ fontSize: 9, color: "#fff", fontWeight: 700 }}>✓</span>}
-                    </button>
-                    <select value={r.rlType} onChange={e => setRL(r.id, "rlType", e.target.value)} style={{ flex: 2, padding: "4px", fontSize: 11, color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", background: "#fff", cursor: "pointer", boxSizing: "border-box", minWidth: 0 }}>
-                      {["驻波比","S参数 (dB)","阻抗 (Ω)"].map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <select value={r.calc} onChange={e => setRL(r.id, "calc", e.target.value)} style={{ flex: 1.5, padding: "4px", fontSize: 11, color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", background: "#fff", cursor: "pointer", boxSizing: "border-box", minWidth: 0 }}>
-                      {["average","min","max","rms"].map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <select value={r.optType} onChange={e => setRL(r.id, "optType", e.target.value)} style={{ flex: 1.5, padding: "4px", fontSize: 11, color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", background: "#fff", cursor: "pointer", boxSizing: "border-box", minWidth: 0 }}>
-                      {["min","max"].map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                  </div>
-                ))}
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, padding: "6px 0" }}>
-                  <button onClick={addRLRow} className="flex items-center gap-1 px-3 py-1 rounded-lg" style={{ fontSize: 10, color: C.accent, background: C.accentD, border: "1px solid " + C.borderA, cursor: "pointer" }}><Plus size={10} />添加行</button>
-                  <button onClick={delRLRows} disabled={!rlRows.some(r => r.checked)} className="flex items-center gap-1 px-3 py-1 rounded-lg" style={{ fontSize: 10, color: rlRows.some(r => r.checked) ? "#d93025" : C.text3, background: rlRows.some(r => r.checked) ? "rgba(217,48,37,0.06)" : "#f1f3f4", border: "1px solid " + (rlRows.some(r => r.checked) ? "rgba(217,48,37,0.3)" : C.borderA), cursor: rlRows.some(r => r.checked) ? "pointer" : "default" }}><Trash2 size={10} />删除行</button>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-between px-6 py-3.5" style={{ borderTop: `1px solid ${C.border}`, background: "#fafbfc" }}>
-              {editMode ? (<>
-                <button onClick={() => onCancel?.()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
-                  style={{ fontSize: 12, color: C.text2, background: "transparent", border: "none", cursor: "pointer" }}>取消</button>
-                <button onClick={() => onConfirm?.()}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg"
-                  style={{ fontSize: 12, fontWeight: 500, color: "#fff", background: C.accent, border: "none", cursor: "pointer" }}><CheckCircle size={13} />确认</button>
-              </>) : (<>
-                <button onClick={() => setWizStep(4)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
-                  style={{ fontSize: 12, color: C.text2, background: "transparent", border: "none", cursor: "pointer" }}>
-                  <ChevronLeft size={13} />上一步
-                </button>
-                <button onClick={() => { setWizStep(6); }}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg"
-                  style={{ fontSize: 12, fontWeight: 500, color: "#fff", background: C.accent, border: "none", cursor: "pointer" }}>
-                  下一步 <ChevronRight size={13} />
-                </button>
-              </>)}
-            </div>
-          </>)}
-        {/* ── Step 6: Constraint settings ── */}
-        {wizStep === 6 && (<>
-            <div className="flex-1 overflow-y-auto" style={{ padding: "10px 16px", background: "#fff", scrollbarWidth: "none" }}>
-              {/* ── AR/Gain constraint table ── */}
-              <p style={{ fontSize: 12, fontWeight: 700, color: "#111", marginBottom: 6 }}>轴比/增益约束设置</p>
-              <div style={{ marginBottom: 14 }}>
-                <div className="flex items-center" style={{ padding: "5px 12px", background: "#f8f9fa", borderRadius: "8px 8px 0 0", border: "1px solid " + C.border, borderBottom: "none", fontSize: 11, fontWeight: 600, color: C.text2, gap: 4 }}>
-                  <span style={{ width: 24, textAlign: "center", flexShrink: 0 }}></span>
-                  <span style={{ flex: 1.2 }}>约束</span>
-                  <span style={{ flex: 1, textAlign: "center" }}>起始θ (°)</span>
-                  <span style={{ flex: 1, textAlign: "center" }}>终止θ (°)</span>
-                  <span style={{ flex: 1, textAlign: "center" }}>起始φ (°)</span>
-                  <span style={{ flex: 1, textAlign: "center" }}>终止φ (°)</span>
-                  <span style={{ flex: 1, textAlign: "center" }}>计算方式</span>
-                  <span style={{ flex: 0.8, textAlign: "center" }}>约束类型</span>
-                  <span style={{ flex: 0.8, textAlign: "center" }}>误差值</span>
-                  <span style={{ flex: 0.8, textAlign: "center" }}>阈值</span>
-                  <span style={{ flex: 0.8, textAlign: "center" }}>权值</span>
-                </div>
-                {gainConRows.map(r => (
-                  <div key={r.id} className="flex items-center" style={{ padding: "4px 12px", border: "1px solid " + C.border, borderTop: "none", gap: 4 }}>
-                    <button onClick={() => toggleGainCon(r.id)} style={{ width: 20, height: 16, borderRadius: 3, border: "1.5px solid " + (r.checked ? C.accent : C.borderA), background: r.checked ? C.accent : "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      {r.checked && <span style={{ fontSize: 9, color: "#fff", fontWeight: 700 }}>✓</span>}
-                    </button>
-                    <select value={r.constraint} onChange={e => setGainCon(r.id, "constraint", e.target.value)} style={{ flex: 1.2, padding: "4px", fontSize: 11, color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", background: "#fff", cursor: "pointer", boxSizing: "border-box", minWidth: 0 }}>
-                      {["轴比 (dB)","总增益 (dB)","水平增益 (dB)","垂直增益 (dB)","右旋增益 (dB)","左旋增益 (dB)"].map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <select value={r.thetaStart} onChange={e => setGainCon(r.id, "thetaStart", e.target.value)} style={{ flex: 1, padding: "4px", fontSize: 11, color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", background: "#fff", cursor: "pointer", boxSizing: "border-box", minWidth: 0 }}>
-                      {(thetaOpts.length ? thetaOpts : [thetaStart || r.thetaStart]).map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <select value={r.thetaEnd} onChange={e => setGainCon(r.id, "thetaEnd", e.target.value)} style={{ flex: 1, padding: "4px", fontSize: 11, color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", background: "#fff", cursor: "pointer", boxSizing: "border-box", minWidth: 0 }}>
-                      {(thetaOpts.length ? thetaOpts : [thetaEnd || r.thetaEnd]).map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <select value={r.phiStart} onChange={e => setGainCon(r.id, "phiStart", e.target.value)} style={{ flex: 1, padding: "4px", fontSize: 11, color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", background: "#fff", cursor: "pointer", boxSizing: "border-box", minWidth: 0 }}>
-                      {(phiOpts.length ? phiOpts : [phiStart || r.phiStart]).map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <select value={r.phiEnd} onChange={e => setGainCon(r.id, "phiEnd", e.target.value)} style={{ flex: 1, padding: "4px", fontSize: 11, color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", background: "#fff", cursor: "pointer", boxSizing: "border-box", minWidth: 0 }}>
-                      {(phiOpts.length ? phiOpts : [phiEnd || r.phiEnd]).map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <select value={r.calc} onChange={e => setGainCon(r.id, "calc", e.target.value)} style={{ flex: 1, padding: "4px", fontSize: 11, color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", background: "#fff", cursor: "pointer", boxSizing: "border-box", minWidth: 0 }}>
-                      {["average","min","max","rms"].map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <select value={r.conType} onChange={e => setGainCon(r.id, "conType", e.target.value)} style={{ flex: 0.8, padding: "4px", fontSize: 11, color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", background: "#fff", cursor: "pointer", boxSizing: "border-box", minWidth: 0 }}>
-                      {["<=",">=","="].map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <input value={r.errorVal} onChange={e => setGainCon(r.id, "errorVal", e.target.value)} disabled={r.conType !== "="} style={{ flex: 0.8, padding: "4px", fontSize: 11, fontFamily: "monospace", color: r.conType !== "=" ? C.text3 : "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", textAlign: "center", boxSizing: "border-box", background: r.conType !== "=" ? "#f5f5f5" : "#fff", minWidth: 0 }} />
-                    <input value={r.threshold} onChange={e => setGainCon(r.id, "threshold", e.target.value)} style={{ flex: 0.8, padding: "4px", fontSize: 11, fontFamily: "monospace", color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", textAlign: "center", boxSizing: "border-box", minWidth: 0 }} />
-                    <input value={r.weight} onChange={e => setGainCon(r.id, "weight", e.target.value)} style={{ flex: 0.8, padding: "4px", fontSize: 11, fontFamily: "monospace", color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", textAlign: "center", boxSizing: "border-box", minWidth: 0 }} />
-                  </div>
-                ))}
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, padding: "6px 0" }}>
-                  <button onClick={addGainConRow} className="flex items-center gap-1 px-3 py-1 rounded-lg" style={{ fontSize: 10, color: C.accent, background: C.accentD, border: "1px solid " + C.borderA, cursor: "pointer" }}><Plus size={10} />添加行</button>
-                  <button onClick={delGainConRows} disabled={!gainConRows.some(r => r.checked)} className="flex items-center gap-1 px-3 py-1 rounded-lg" style={{ fontSize: 10, color: gainConRows.some(r => r.checked) ? "#d93025" : C.text3, background: gainConRows.some(r => r.checked) ? "rgba(217,48,37,0.06)" : "#f1f3f4", border: "1px solid " + (gainConRows.some(r => r.checked) ? "rgba(217,48,37,0.3)" : C.borderA), cursor: gainConRows.some(r => r.checked) ? "pointer" : "default" }}><Trash2 size={10} />删除行</button>
-                </div>
-              </div>
-
-              {/* ── Return loss constraint table ── */}
-              <p style={{ fontSize: 12, fontWeight: 700, color: "#111", marginBottom: 6 }}>回波损失约束设置</p>
-              <div style={{ marginBottom: 14 }}>
-                <div className="flex items-center" style={{ padding: "5px 12px", background: "#f8f9fa", borderRadius: "8px 8px 0 0", border: "1px solid " + C.border, borderBottom: "none", fontSize: 11, fontWeight: 600, color: C.text2, gap: 4 }}>
-                  <span style={{ width: 24, textAlign: "center", flexShrink: 0 }}></span>
-                  <span style={{ flex: 1.5 }}>回波损失类型</span>
-                  <span style={{ flex: 1.2, textAlign: "center" }}>计算方式</span>
-                  <span style={{ flex: 1, textAlign: "center" }}>约束类型</span>
-                  <span style={{ flex: 1, textAlign: "center" }}>误差值</span>
-                  <span style={{ flex: 1, textAlign: "center" }}>实部阈值</span>
-                  <span style={{ flex: 1, textAlign: "center" }}>虚部阈值</span>
-                  <span style={{ flex: 1, textAlign: "center" }}>权值</span>
-                </div>
-                {rlConRows.map(r => (
-                  <div key={r.id} className="flex items-center" style={{ padding: "4px 12px", border: "1px solid " + C.border, borderTop: "none", gap: 4 }}>
-                    <button onClick={() => toggleRLCon(r.id)} style={{ width: 20, height: 16, borderRadius: 3, border: "1.5px solid " + (r.checked ? C.accent : C.borderA), background: r.checked ? C.accent : "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      {r.checked && <span style={{ fontSize: 9, color: "#fff", fontWeight: 700 }}>✓</span>}
-                    </button>
-                    <select value={r.rlType} onChange={e => setRLCon(r.id, "rlType", e.target.value)} style={{ flex: 1.5, padding: "4px", fontSize: 11, color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", background: "#fff", cursor: "pointer", boxSizing: "border-box", minWidth: 0 }}>
-                      {["驻波比","S参数 (dB)","阻抗 (Ω)"].map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <select value={r.calc} onChange={e => setRLCon(r.id, "calc", e.target.value)} style={{ flex: 1.2, padding: "4px", fontSize: 11, color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", background: "#fff", cursor: "pointer", boxSizing: "border-box", minWidth: 0 }}>
-                      {["average","min","max","rms"].map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <select value={r.conType} onChange={e => setRLCon(r.id, "conType", e.target.value)} style={{ flex: 1, padding: "4px", fontSize: 11, color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", background: "#fff", cursor: "pointer", boxSizing: "border-box", minWidth: 0 }}>
-                      {["<=",">=","="].map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <input value={r.errorVal} onChange={e => setRLCon(r.id, "errorVal", e.target.value)} disabled={r.conType !== "="} style={{ flex: 1, padding: "4px", fontSize: 11, fontFamily: "monospace", color: r.conType !== "=" ? C.text3 : "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", textAlign: "center", boxSizing: "border-box", background: r.conType !== "=" ? "#f5f5f5" : "#fff", minWidth: 0 }} />
-                    <input value={r.realThreshold} onChange={e => setRLCon(r.id, "realThreshold", e.target.value)} style={{ flex: 1, padding: "4px", fontSize: 11, fontFamily: "monospace", color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", textAlign: "center", boxSizing: "border-box", minWidth: 0 }} />
-                    <input value={r.imagThreshold} onChange={e => setRLCon(r.id, "imagThreshold", e.target.value)} disabled={r.rlType !== "阻抗 (Ω)"} style={{ flex: 1, padding: "4px", fontSize: 11, fontFamily: "monospace", color: r.rlType !== "阻抗 (Ω)" ? C.text3 : "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", textAlign: "center", boxSizing: "border-box", background: r.rlType !== "阻抗 (Ω)" ? "#f5f5f5" : "#fff", minWidth: 0 }} />
-                    <input value={r.weight} onChange={e => setRLCon(r.id, "weight", e.target.value)} style={{ flex: 1, padding: "4px", fontSize: 11, fontFamily: "monospace", color: "#111", border: "1px solid " + C.borderA, borderRadius: 4, outline: "none", textAlign: "center", boxSizing: "border-box", minWidth: 0 }} />
-                  </div>
-                ))}
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, padding: "6px 0" }}>
-                  <button onClick={addRLConRow} className="flex items-center gap-1 px-3 py-1 rounded-lg" style={{ fontSize: 10, color: C.accent, background: C.accentD, border: "1px solid " + C.borderA, cursor: "pointer" }}><Plus size={10} />添加行</button>
-                  <button onClick={delRLConRows} disabled={!rlConRows.some(r => r.checked)} className="flex items-center gap-1 px-3 py-1 rounded-lg" style={{ fontSize: 10, color: rlConRows.some(r => r.checked) ? "#d93025" : C.text3, background: rlConRows.some(r => r.checked) ? "rgba(217,48,37,0.06)" : "#f1f3f4", border: "1px solid " + (rlConRows.some(r => r.checked) ? "rgba(217,48,37,0.3)" : C.borderA), cursor: rlConRows.some(r => r.checked) ? "pointer" : "default" }}><Trash2 size={10} />删除行</button>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-between px-6 py-3.5" style={{ borderTop: "1px solid " + C.border, background: "#fafbfc" }}>
-              {editMode ? (<>
-                <button onClick={() => onCancel?.()} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ fontSize: 12, color: C.text2, background: "transparent", border: "none", cursor: "pointer" }}>取消</button>
-                <button onClick={() => onConfirm?.()} className="flex items-center gap-1.5 px-4 py-2 rounded-lg" style={{ fontSize: 12, fontWeight: 500, color: "#fff", background: C.accent, border: "none", cursor: "pointer" }}><CheckCircle size={13} />确认</button>
-              </>) : (<>
-                <button onClick={() => setWizStep(5)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ fontSize: 12, color: C.text2, background: "transparent", border: "none", cursor: "pointer" }}><ChevronLeft size={13} />上一步</button>
-                <button onClick={() => { setWizStep(7); }} className="flex items-center gap-1.5 px-4 py-2 rounded-lg" style={{ fontSize: 12, fontWeight: 500, color: "#fff", background: C.accent, border: "none", cursor: "pointer" }}>下一步 <ChevronRight size={13} /></button>
-              </>)}
-            </div>
-          </>)}
-        {/* ── Step 7: Algorithm parameter settings ── */}
-        {wizStep === 7 && (<>
-            <div className="flex-1 overflow-y-auto" style={{ padding: "14px 24px", background: "#fff", scrollbarWidth: "none" }}>
-              {/* Algorithm selector — computed from step 5/6 state */}
-              {(() => {
-                const hasC = gainConRows.length > 0 || rlConRows.length > 0;
-                const multi = gainRows.length > 1;
-                const opts: { value: string; label: string }[] = [];
-                if (!multi) {
-                  opts.push({ value: hasC ? "DCNSGA_II" : "DifferentialEvolution", label: hasC ? "DCNSGA_II" : "DifferentialEvolution" });
-                } else {
-                  if (hasC) {
-                    opts.push({ value: "DCNSGA_III", label: "DCNSGA_III" });
-                  } else {
-                    opts.push({ value: "NSGA_III", label: "NSGA-III" });
-                    opts.push({ value: "MOEA_D", label: "MOEA/D" });
-                  }
-                }
-                const current = opts.some(o => o.value === algoName) ? algoName : opts[0]?.value || "DCNSGA_II";
-                return (
-                  <select value={current} onChange={e => setAlgoName(e.target.value)}
-                    style={{ width: "100%", padding: "8px 12px", fontSize: 13, fontWeight: 500, color: "#111", border: "1px solid " + C.borderA, borderRadius: 8, outline: "none", background: "#fff", cursor: "pointer", boxSizing: "border-box", marginBottom: 20 }}>
-                    {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                );
-              })()}
-
-              {/* Algorithm detail table */}
               <div className="rounded-xl overflow-hidden" style={{ border: "1px solid " + C.border }}>
-                {[
-                  { label: "最大环境状态", key: "maxEnv", value: algoMaxEnv, setter: setAlgoMaxEnv },
-                  { label: "允许最大代数", key: "maxGen", value: algoMaxGen, setter: setAlgoMaxGen },
-                  { label: "种群规模", key: "popSize", value: algoPopSize, setter: setAlgoPopSize },
-                  { label: "启动进程数", key: "procs", value: algoProcs, setter: setAlgoProcs },
-                  { label: "评估容忍时间", key: "evalTime", value: algoEvalTime, setter: setAlgoEvalTime },
-                ].map(({ label, value, setter }) => (
-                  <div key={label} className="flex items-center justify-between" style={{ padding: "10px 16px", borderBottom: "1px solid " + C.border, fontSize: 12, fontWeight: 600, color: "#111" }}>
-                    <span>{label}</span>
-                    <input value={value} onChange={e => setter(e.target.value)}
-                      style={{ width: 100, padding: "5px 10px", fontSize: 12, fontWeight: 500, fontFamily: "monospace", color: "#111", border: "1px solid " + C.borderA, borderRadius: 6, outline: "none", textAlign: "center", boxSizing: "border-box" }}
-                      onFocus={e => e.target.style.borderColor = C.accent} onBlur={e => e.target.style.borderColor = C.borderA} />
-                  </div>
-                ))}
-                <div className="flex items-center justify-between" style={{ padding: "10px 16px", fontSize: 12, fontWeight: 600, color: "#111" }}>
-                  <span>启用断点续算</span>
-                  <select value={algoResume} onChange={e => setAlgoResume(e.target.value)}
-                    style={{ width: 100, padding: "5px 10px", fontSize: 12, fontWeight: 500, border: "1px solid " + C.borderA, borderRadius: 6, outline: "none", background: "#fff", cursor: "pointer", boxSizing: "border-box" }}>
-                    <option value="是">是</option>
-                    <option value="否">否</option>
-                  </select>
-                </div>
+                {GEO_SAMPLE_PARAMS.map((p, idx) => {
+                  const bad = geoOutOfRange(p);
+                  return (
+                    <div key={p.key} style={{ padding: "10px 16px", borderBottom: idx === GEO_SAMPLE_PARAMS.length - 1 ? "none" : "1px solid " + C.border }}>
+                      <div className="flex items-center justify-between">
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "#111" }}>{p.label}</span>
+                        <input value={geoParams[p.key] ?? ""} onChange={e => setGeoParam(p.key, e.target.value)}
+                          style={{ width: 100, padding: "5px 10px", fontSize: 12, fontWeight: 500, fontFamily: "monospace", color: "#111", border: "1px solid " + (bad ? "#d93025" : C.borderA), borderRadius: 6, outline: "none", textAlign: "center", boxSizing: "border-box" }}
+                          onFocus={e => e.target.style.borderColor = bad ? "#d93025" : C.accent}
+                          onBlur={e => e.target.style.borderColor = bad ? "#d93025" : C.borderA} />
+                      </div>
+                      <div style={{ fontSize: 10, lineHeight: 1.5, marginTop: 4, color: bad ? "#d93025" : C.text3 }}>
+                        {bad ? `取值需在 ${p.range[0]}–${p.range[1]} 之间。` : ""}{p.hint}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
             <div className="flex items-center justify-between px-6 py-3.5" style={{ borderTop: "1px solid " + C.border, background: "#fafbfc" }}>
@@ -2346,7 +1797,7 @@ function NewProjectWizard({ projectFolder, onBack, onCreate, editMode, editStepI
                 <button onClick={() => onCancel?.()} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ fontSize: 12, color: C.text2, background: "transparent", border: "none", cursor: "pointer" }}>取消</button>
                 <button onClick={() => onConfirm?.()} className="flex items-center gap-1.5 px-4 py-2 rounded-lg" style={{ fontSize: 12, fontWeight: 500, color: "#fff", background: C.accent, border: "none", cursor: "pointer" }}><CheckCircle size={13} />确认</button>
               </>) : (<>
-                <button onClick={() => setWizStep(6)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ fontSize: 12, color: C.text2, background: "transparent", border: "none", cursor: "pointer" }}><ChevronLeft size={13} />上一步</button>
+                <div />
                 <button onClick={() => { onBack(); }}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg"
                   style={{ fontSize: 12, fontWeight: 500, color: "#fff", background: C.green, border: "none", cursor: "pointer" }}>
@@ -2354,7 +1805,8 @@ function NewProjectWizard({ projectFolder, onBack, onCreate, editMode, editStepI
                 </button>
               </>)}
             </div>
-          </>)}
+          </>
+        )}
       </div>
     </div>
   );
@@ -2469,12 +1921,7 @@ type TreeNode = { id: string; label: string; icon: React.ComponentType<{ size?: 
 
 const PROJECT_TREE: TreeNode[] = [
   { id: "design-params",  label: "设计参数展示",  icon: FolderOpen, children: [
-    { id: "dp-freq",     label: "频段范围设置",       icon: Radio },
-    { id: "dp-radiation",label: "辐射范围设置",       icon: Maximize2 },
-    { id: "dp-structure",label: "设计变量设置",   icon: Settings },
-    { id: "dp-variables",label: "目标设置",        icon: Sliders },
-    { id: "dp-objective",label: "约束设置",        icon: BarChart2 },
-    { id: "dp-algorithm",label: "算法参数设置",        icon: Activity },
+    { id: "dp-geo",      label: "几何样本参数",   icon: Sliders },
   ]},
   { id: "results",   label: "结果展示",  icon: BarChart2, children: [] as TreeNode[] },
 ];
@@ -2697,7 +2144,7 @@ const ALL_OPT_LOGS = [
   "[01:06] ✓ 优化报告已生成，结果已保存至项目目录",
 ];
 
-function ProjectDetail({ project, onBack }: { project: (typeof RECENT_PROJECTS)[0]; onBack: () => void }) {
+function ProjectDetail({ project, onBack }: { project: (typeof RECENT_PROJECTS)[0] & { template?: string }; onBack: () => void }) {
   const [selNode, setSelNode] = useState("");
   const [sidebarW, setSidebarW] = useState(218);
   const sidebarRef = useRef<HTMLDivElement | null>(null);
@@ -3102,7 +2549,7 @@ function ProjectDetail({ project, onBack }: { project: (typeof RECENT_PROJECTS)[
               </div>
             </div>
             <div style={{ background: "#fff", borderRadius: 10, border: `1px solid ${C.border}`, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <img src="./template-horn.png" alt="天线模板" style={{ width: "100%", maxWidth: 480, borderRadius: 12 }} />
+              <img src={templateImage(project.template)} alt="AI_ANT_HSG 模板示意图" style={{ maxWidth: "100%", maxHeight: 340, borderRadius: 12 }} />
             </div>
           </div>
         );
@@ -3293,19 +2740,29 @@ function ProjectDetail({ project, onBack }: { project: (typeof RECENT_PROJECTS)[
             </div>
           </div>
         );
-      // ── Design parameter leaf nodes ──
-      case "dp-freq":
-        return (<div><h3 style={{ fontSize: 16, fontWeight: 600, color: C.text1, marginBottom: 14 }}>频段范围设置</h3><div style={{ background: "#fff", borderRadius: 10, border: "1px solid " + C.border, padding: "14px 18px", display: "flex", gap: 20 }}><div style={{ flex: 1 }}><p style={{ fontSize: 12, fontWeight: 600, color: "#111", marginBottom: 8 }}>频段参数</p><p style={{ fontSize: 11, color: C.text2, lineHeight: 1.7 }}>在项目创建向导中填写的天线工作频段。</p><div style={{ marginTop: 14, display: "flex", gap: 6 }}><button className="px-3 py-1.5 rounded-lg" style={{ fontSize: 11, color: "#fff", background: C.accent, border: "none", cursor: "pointer" }}>确认</button><button className="px-3 py-1.5 rounded-lg" style={{ fontSize: 11, color: C.text2, background: "#f1f3f4", border: "1px solid " + C.borderA, cursor: "pointer" }}>取消</button></div></div><div style={{ width: 200, background: C.accentD, borderRadius: 12, padding: "20px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><svg width="140" height="110" viewBox="0 0 140 110"><circle cx="70" cy="55" r="28" fill="none" stroke={C.accent} strokeWidth="1.5" strokeDasharray="4,2" />{[0,60,120,180,240,300].map((deg,i) => { const r=deg*Math.PI/180; return <circle key={i} cx={70+28*Math.cos(r)} cy={55+28*Math.sin(r)} r="2.5" fill={C.accent} />; })}<circle cx="70" cy="55" r="1.5" fill="#333" /><text x="70" y="98" textAnchor="middle" fill={C.text3} fontSize="8">理想点源圆阵</text></svg></div></div></div>);
-      case "dp-radiation":
-        return (<div><h3 style={{ fontSize: 16, fontWeight: 600, color: C.text1, marginBottom: 14 }}>辐射范围设置</h3><div style={{ background: "#fff", borderRadius: 10, border: "1px solid " + C.border, padding: "14px 18px", display: "flex", gap: 20 }}><div style={{ flex: 1 }}><p style={{ fontSize: 12, fontWeight: 600, color: "#111", marginBottom: 8 }}>θ / φ 扫描范围</p><p style={{ fontSize: 11, color: C.text2, lineHeight: 1.7 }}>在项目创建向导中填写的辐射方向图扫描角度。</p><div style={{ marginTop: 14, display: "flex", gap: 6 }}><button className="px-3 py-1.5 rounded-lg" style={{ fontSize: 11, color: "#fff", background: C.accent, border: "none", cursor: "pointer" }}>确认</button><button className="px-3 py-1.5 rounded-lg" style={{ fontSize: 11, color: C.text2, background: "#f1f3f4", border: "1px solid " + C.borderA, cursor: "pointer" }}>取消</button></div></div><div style={{ width: 200, background: C.accentD, borderRadius: 12, padding: "20px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><svg width="140" height="110" viewBox="0 0 140 110"><circle cx="70" cy="55" r="28" fill="none" stroke={C.accent} strokeWidth="1.5" strokeDasharray="4,2" />{[0,60,120,180,240,300].map((deg,i) => { const r=deg*Math.PI/180; return <circle key={i} cx={70+28*Math.cos(r)} cy={55+28*Math.sin(r)} r="2.5" fill={C.accent} />; })}<circle cx="70" cy="55" r="1.5" fill="#333" /><text x="70" y="98" textAnchor="middle" fill={C.text3} fontSize="8">理想点源圆阵</text></svg></div></div></div>);
-      case "dp-structure":
-        return (<div><h3 style={{ fontSize: 16, fontWeight: 600, color: C.text1, marginBottom: 14 }}>设计变量设置</h3><div style={{ background: "#fff", borderRadius: 10, border: "1px solid " + C.border, padding: "14px 18px", display: "flex", gap: 20 }}><div style={{ flex: 1 }}><p style={{ fontSize: 12, fontWeight: 600, color: "#111", marginBottom: 8 }}>阵列结构与环境</p><p style={{ fontSize: 11, color: C.text2, lineHeight: 1.7 }}>包含阵元个数、是否均匀阵列、阵列类型等结构参数。</p><div style={{ marginTop: 14, display: "flex", gap: 6 }}><button className="px-3 py-1.5 rounded-lg" style={{ fontSize: 11, color: "#fff", background: C.accent, border: "none", cursor: "pointer" }}>确认</button><button className="px-3 py-1.5 rounded-lg" style={{ fontSize: 11, color: C.text2, background: "#f1f3f4", border: "1px solid " + C.borderA, cursor: "pointer" }}>取消</button></div></div><div style={{ width: 200, background: C.accentD, borderRadius: 12, padding: "20px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><svg width="140" height="110" viewBox="0 0 140 110"><circle cx="70" cy="55" r="28" fill="none" stroke={C.accent} strokeWidth="1.5" strokeDasharray="4,2" />{[0,60,120,180,240,300].map((deg,i) => { const r=deg*Math.PI/180; return <circle key={i} cx={70+28*Math.cos(r)} cy={55+28*Math.sin(r)} r="2.5" fill={C.accent} />; })}<circle cx="70" cy="55" r="1.5" fill="#333" /><text x="70" y="98" textAnchor="middle" fill={C.text3} fontSize="8">理想点源圆阵</text></svg></div></div></div>);
-      case "dp-variables":
-        return (<div><h3 style={{ fontSize: 16, fontWeight: 600, color: C.text1, marginBottom: 14 }}>目标设置</h3><div style={{ background: "#fff", borderRadius: 10, border: "1px solid " + C.border, padding: "14px 18px", display: "flex", gap: 20 }}><div style={{ flex: 1 }}><p style={{ fontSize: 12, fontWeight: 600, color: "#111", marginBottom: 8 }}>优化变量</p><p style={{ fontSize: 11, color: C.text2, lineHeight: 1.7 }}>设置圆阵半径和阵元角度的优化范围。</p><div style={{ marginTop: 14, display: "flex", gap: 6 }}><button className="px-3 py-1.5 rounded-lg" style={{ fontSize: 11, color: "#fff", background: C.accent, border: "none", cursor: "pointer" }}>确认</button><button className="px-3 py-1.5 rounded-lg" style={{ fontSize: 11, color: C.text2, background: "#f1f3f4", border: "1px solid " + C.borderA, cursor: "pointer" }}>取消</button></div></div><div style={{ width: 200, background: C.accentD, borderRadius: 12, padding: "20px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><svg width="140" height="110" viewBox="0 0 140 110"><circle cx="70" cy="55" r="28" fill="none" stroke={C.accent} strokeWidth="1.5" strokeDasharray="4,2" />{[0,60,120,180,240,300].map((deg,i) => { const r=deg*Math.PI/180; return <circle key={i} cx={70+28*Math.cos(r)} cy={55+28*Math.sin(r)} r="2.5" fill={C.accent} />; })}<circle cx="70" cy="55" r="1.5" fill="#333" /><text x="70" y="98" textAnchor="middle" fill={C.text3} fontSize="8">理想点源圆阵</text></svg></div></div></div>);
-      case "dp-objective":
-        return (<div><h3 style={{ fontSize: 16, fontWeight: 600, color: C.text1, marginBottom: 14 }}>约束设置</h3><div style={{ background: "#fff", borderRadius: 10, border: "1px solid " + C.border, padding: "14px 18px", display: "flex", gap: 20 }}><div style={{ flex: 1 }}><p style={{ fontSize: 12, fontWeight: 600, color: "#111", marginBottom: 8 }}>优化目标与约束</p><p style={{ fontSize: 11, color: C.text2, lineHeight: 1.7 }}>设置测向误差目标和约束条件。</p><div style={{ marginTop: 14, display: "flex", gap: 6 }}><button className="px-3 py-1.5 rounded-lg" style={{ fontSize: 11, color: "#fff", background: C.accent, border: "none", cursor: "pointer" }}>确认</button><button className="px-3 py-1.5 rounded-lg" style={{ fontSize: 11, color: C.text2, background: "#f1f3f4", border: "1px solid " + C.borderA, cursor: "pointer" }}>取消</button></div></div><div style={{ width: 200, background: C.accentD, borderRadius: 12, padding: "20px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><svg width="140" height="110" viewBox="0 0 140 110"><circle cx="70" cy="55" r="28" fill="none" stroke={C.accent} strokeWidth="1.5" strokeDasharray="4,2" />{[0,60,120,180,240,300].map((deg,i) => { const r=deg*Math.PI/180; return <circle key={i} cx={70+28*Math.cos(r)} cy={55+28*Math.sin(r)} r="2.5" fill={C.accent} />; })}<circle cx="70" cy="55" r="1.5" fill="#333" /><text x="70" y="98" textAnchor="middle" fill={C.text3} fontSize="8">理想点源圆阵</text></svg></div></div></div>);
-      case "dp-algorithm":
-        return (<div><h3 style={{ fontSize: 16, fontWeight: 600, color: C.text1, marginBottom: 14 }}>算法参数设置</h3><div style={{ background: "#fff", borderRadius: 10, border: "1px solid " + C.border, padding: "14px 18px", display: "flex", gap: 20 }}><div style={{ flex: 1 }}><p style={{ fontSize: 12, fontWeight: 600, color: "#111", marginBottom: 8 }}>优化算法配置</p><p style={{ fontSize: 11, color: C.text2, lineHeight: 1.7 }}>选择 DCNSGA_II/III 算法并设置超参数。</p><div style={{ marginTop: 14, display: "flex", gap: 6 }}><button className="px-3 py-1.5 rounded-lg" style={{ fontSize: 11, color: "#fff", background: C.accent, border: "none", cursor: "pointer" }}>确认</button><button className="px-3 py-1.5 rounded-lg" style={{ fontSize: 11, color: C.text2, background: "#f1f3f4", border: "1px solid " + C.borderA, cursor: "pointer" }}>取消</button></div></div><div style={{ width: 200, background: C.accentD, borderRadius: 12, padding: "20px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><svg width="140" height="110" viewBox="0 0 140 110"><circle cx="70" cy="55" r="28" fill="none" stroke={C.accent} strokeWidth="1.5" strokeDasharray="4,2" />{[0,60,120,180,240,300].map((deg,i) => { const r=deg*Math.PI/180; return <circle key={i} cx={70+28*Math.cos(r)} cy={55+28*Math.sin(r)} r="2.5" fill={C.accent} />; })}<circle cx="70" cy="55" r="1.5" fill="#333" /><text x="70" y="98" textAnchor="middle" fill={C.text3} fontSize="8">理想点源圆阵</text></svg></div></div></div>);
+      // ── Design parameter leaf node ──
+      case "dp-geo":
+        return (
+          <div>
+            <h3 style={{ fontSize: 16, fontWeight: 600, color: C.text1, marginBottom: 14 }}>几何样本参数</h3>
+            <div className="rounded-xl overflow-hidden" style={{ background: "#fff", border: `1px solid ${C.border}` }}>
+              <div className="flex items-center" style={{ padding: "10px 16px", background: "#fafbfc", borderBottom: `1px solid ${C.border}` }}>
+                <span style={{ flex: 2, fontSize: 10, fontWeight: 600, color: C.text2 }}>参数</span>
+                <span style={{ flex: 1, fontSize: 10, fontWeight: 600, color: C.text2, textAlign: "center" }}>默认值</span>
+                <span style={{ flex: 1.2, fontSize: 10, fontWeight: 600, color: C.text2, textAlign: "center" }}>取值范围</span>
+                <span style={{ flex: 3, fontSize: 10, fontWeight: 600, color: C.text2 }}>说明</span>
+              </div>
+              {GEO_SAMPLE_PARAMS.map((g, i) => (
+                <div key={g.key} className="flex items-center" style={{ padding: "9px 16px", borderBottom: i === GEO_SAMPLE_PARAMS.length - 1 ? "none" : `1px solid ${C.border}` }}>
+                  <span style={{ flex: 2, fontSize: 11, color: C.text1 }}>{g.label}</span>
+                  <span style={{ flex: 1, fontSize: 11, fontFamily: "monospace", color: C.text1, fontWeight: 600, textAlign: "center" }}>{g.def}</span>
+                  <span style={{ flex: 1.2, fontSize: 11, fontFamily: "monospace", color: C.text2, textAlign: "center" }}>{g.range[0]}–{g.range[1]}</span>
+                  <span style={{ flex: 3, fontSize: 10, color: C.text3, lineHeight: 1.5 }}>{g.hint}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
       case "opt-results-table":
         return (
           <div>
@@ -3435,7 +2892,7 @@ function ProjectDetail({ project, onBack }: { project: (typeof RECENT_PROJECTS)[
             /* Default: show template image */
             <div className="flex flex-col items-center justify-center h-full" style={{ gap: 16 }}>
               <div style={{ background: C.accentD, borderRadius: 14, padding: "30px 40px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <img src="./template-horn.png" alt="天线模板" style={{ width: "100%", maxWidth: 480, borderRadius: 14 }} />
+                <img src={templateImage(project.template)} alt="AI_ANT_HSG 模板示意图" style={{ maxWidth: "100%", maxHeight: 400, borderRadius: 14 }} />
               </div>
               {optStatus === "idle" && (
                 <p style={{ fontSize: 11, color: C.text3 }}>从左侧文件树选择节点查看详情</p>
@@ -5850,9 +5307,6 @@ export default function App() {
                       {/* ∨ 项目 section — mirrors SimScale exactly */}
                       <SectionHeader label="项目" sidebarCollapsed={sidebarCollapsed} />
                       <NavItem icon={FolderOpen} label="项目仓库" active={activeNav === "mine"}      onClick={() => setActiveNav("mine")} collapsed={sidebarCollapsed} />
-                      <NavItem icon={Grid3X3}    label="模板广场"   active={activeNav === "templates"} onClick={() => setActiveNav("templates")} collapsed={sidebarCollapsed} />
-                      <NavItem icon={Layers}   label="我的模板" active={activeNav === "mytemplates"} onClick={() => setActiveNav("mytemplates")} collapsed={sidebarCollapsed} />
-
 
                       {/* ∨ 账号 section */}
                       <SectionHeader label="账号" sidebarCollapsed={sidebarCollapsed} />
@@ -6318,9 +5772,9 @@ export default function App() {
                               <NewProjectWizard
                                 projectFolder={projectFolder}
                                 onBack={() => setShowNewProjWizard(false)}
-                                onCreate={(name, template) => {
-                                  const tagMap: Record<string, string> = { "horn-rect": "矩形喇叭", "horn-circ": "圆形喇叭", "yagi": "八木天线", "patch": "微带贴片", "array": "天线阵列" };
-                                  const newProj = { id: Date.now(), title: name, type: "项目仓库", author: "lucky123", date: "刚刚", privacy: "待优化", tag: tagMap[template] || "微带贴片", freq: 2.45, params: { patchL: 38.5, patchW: 47.2, feedPos: 12.3, er: 4.40, h: 1.6 }, results: { s11: -18.3, gain: 6.2, vswr: 1.28, bw: 98, eff: 87.3 } };
+                                onCreate={(name, template, part) => {
+                                  const tagMap: Record<string, string> = { "ai-hsg": "AI_ANT_HSG" };
+                                  const newProj = { id: Date.now(), title: name, type: "项目仓库", author: "lucky123", date: "刚刚", privacy: "待优化", tag: tagMap[template] || "AI_ANT_HSG", template, part, freq: 2.45, params: { patchL: 38.5, patchW: 47.2, feedPos: 12.3, er: 4.40, h: 1.6 }, results: { s11: -18.3, gain: 6.2, vswr: 1.28, bw: 98, eff: 87.3 } };
                                   setFolderProjects(prev => ({ ...prev, [projectFolder]: [...(prev[projectFolder] || []), newProj] }));
                                 }}
                               />
